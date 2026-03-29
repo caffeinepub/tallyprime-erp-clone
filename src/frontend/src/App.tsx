@@ -3,6 +3,7 @@ import {
   BarChart3,
   Bell,
   BookOpen,
+  Briefcase,
   Building2,
   Database,
   DollarSign,
@@ -22,7 +23,9 @@ import {
   Sun,
   Target,
   TrendingUp,
+  Truck,
   User,
+  UserCheck,
   Users,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -47,6 +50,8 @@ import ConsolidatedReports from "./components/ConsolidatedReports";
 import CostCentreMaster from "./components/CostCentreMaster";
 import CostCentreSummary from "./components/CostCentreSummary";
 import CurrencyMaster from "./components/CurrencyMaster";
+import CustomerLedger from "./components/CustomerLedger";
+import CustomerMaster from "./components/CustomerMaster";
 import DataManagement from "./components/DataManagement";
 import DayBook from "./components/DayBook";
 import EmployeeMaster from "./components/EmployeeMaster";
@@ -70,6 +75,10 @@ import PaySlip from "./components/PaySlip";
 import PaymentGatewayConfig from "./components/PaymentGatewayConfig";
 import PayrollRegister from "./components/PayrollRegister";
 import PayrollVoucherEntry from "./components/PayrollVoucherEntry";
+import ProjectCostLedger from "./components/ProjectCostLedger";
+import ProjectDashboard from "./components/ProjectDashboard";
+import ProjectMaster from "./components/ProjectMaster";
+import ProjectPL from "./components/ProjectPL";
 import ReportBuilder from "./components/ReportBuilder";
 import RolePermissions from "./components/RolePermissions";
 import SalaryStructureSetup from "./components/SalaryStructureSetup";
@@ -82,6 +91,8 @@ import StockVoucherEntry from "./components/StockVoucherEntry";
 import TaxLedgers from "./components/TaxLedgers";
 import TrialBalance from "./components/TrialBalance";
 import UserManagement from "./components/UserManagement";
+import VendorLedger from "./components/VendorLedger";
+import VendorMaster from "./components/VendorMaster";
 import VoiceVoucherEntry from "./components/VoiceVoucherEntry";
 import VoucherEntry from "./components/VoucherEntry";
 import WhatsAppConfig from "./components/WhatsAppConfig";
@@ -575,6 +586,14 @@ const VIEW_LABELS: Record<string, string> = {
   budgetVsActual: "Budget vs Actual",
   forecasting: "Forecasting Dashboard",
   consolidatedReports: "Consolidated Reports",
+  projectDashboard: "Project Dashboard",
+  projectMaster: "Project Master",
+  projectCostLedger: "Project Cost Ledger",
+  projectPL: "Project P&L Report",
+  customerMaster: "Customer Master",
+  customerLedger: "Customer Ledger",
+  vendorMaster: "Vendor Master",
+  vendorLedger: "Vendor Ledger",
 };
 
 // Role-based allowed nav keys
@@ -637,6 +656,14 @@ const ROLE_ALLOWED_KEYS: Record<string, Set<string>> = {
     "budgetVsActual",
     "forecasting",
     "consolidatedReports",
+    "projectDashboard",
+    "projectMaster",
+    "projectCostLedger",
+    "projectPL",
+    "customerMaster",
+    "customerLedger",
+    "vendorMaster",
+    "vendorLedger",
   ]),
   Auditor: new Set([
     "gateway",
@@ -656,6 +683,10 @@ const ROLE_ALLOWED_KEYS: Record<string, Set<string>> = {
     "budgetVsActual",
     "forecasting",
     "consolidatedReports",
+    "projectDashboard",
+    "projectPL",
+    "customerLedger",
+    "vendorLedger",
   ]),
   Viewer: new Set([
     "gateway",
@@ -673,6 +704,10 @@ const ROLE_ALLOWED_KEYS: Record<string, Set<string>> = {
     "budgetVsActual",
     "forecasting",
     "consolidatedReports",
+    "projectDashboard",
+    "projectPL",
+    "customerLedger",
+    "vendorLedger",
   ]),
 };
 
@@ -1094,6 +1129,22 @@ export default function App() {
       return <ForecastingDashboard company={activeCompany} />;
     if (view === "consolidatedReports")
       return <ConsolidatedReports currentCompany={activeCompany} />;
+    // Phase 21
+    if (view === "projectDashboard")
+      return <ProjectDashboard company={activeCompany} />;
+    if (view === "projectMaster")
+      return <ProjectMaster company={activeCompany} />;
+    if (view === "projectCostLedger")
+      return <ProjectCostLedger company={activeCompany} />;
+    if (view === "projectPL") return <ProjectPL company={activeCompany} />;
+    if (view === "customerMaster")
+      return <CustomerMaster company={activeCompany} />;
+    if (view === "customerLedger")
+      return <CustomerLedger company={activeCompany} />;
+    if (view === "vendorMaster")
+      return <VendorMaster company={activeCompany} />;
+    if (view === "vendorLedger")
+      return <VendorLedger company={activeCompany} />;
     if (view.startsWith("voucher")) {
       const vType = VOUCHER_TYPE_MAP[view] || "Journal";
       return (
@@ -1118,7 +1169,7 @@ export default function App() {
             HisabKitab Pro
           </span>
           <span className="text-[10px] text-muted-foreground font-mono ml-1">
-            v20.0
+            v21.0
           </span>
         </div>
 

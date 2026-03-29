@@ -1,27 +1,41 @@
-# HisabKitab Pro — Phase 20
+# HisabKitab Pro — Phase 21
 
 ## Current State
-Full ERP with 13+ phases: accounting, GST, inventory, payroll, banking, fixed assets, cost centres, multi-currency, RBAC, data management, analytics, audit trail, advanced reporting, notifications, printing/export, integrations, AI tools, voice entry, WhatsApp config. Backend is persistent Motoko actor. Frontend is React + Tailwind + TypeScript. v13.0 displayed in header.
+Fully functional ERP with 20 phases: accounting, GST, inventory, payroll, banking, fixed assets, cost centres, multi-currency, RBAC, data management, analytics, audit trail, advanced reporting, notifications, printing/export, integrations, AI tools, voice entry, WhatsApp outbound, budgeting/forecasting, multi-company consolidation.
 
 ## Requested Changes (Diff)
 
 ### Add
-1. **Budget Master** — Create/edit annual budgets per ledger/ledger group. Fields: budget name, financial year, ledger, allocated amount, period (monthly/quarterly/annual). Stored in localStorage under `hkp-budgets`. Admin and Accountant access.
-2. **Budget vs Actual Report** — Compare budget allocations against actual voucher totals from localStorage. Shows: Ledger, Budgeted Amount, Actual Amount, Variance (₹), Variance %, color-coded (green=under, red=over). Export to CSV.
-3. **Forecasting Dashboard** — Simple linear projection based on last 3 months of actual data. Shows monthly trend chart (bar), projected next-quarter figures, best/worst case estimates. Uses localStorage voucher data.
-4. **Multi-Company Consolidation** — Select 2+ companies from localStorage, generate consolidated Balance Sheet and P&L by summing matching ledger groups. Intercompany flag (mark ledgers as intercompany to exclude from consolidation). Export to CSV.
-- New sidebar section: **Budgeting & Forecasting** with Budget Master, Budget vs Actual, Forecasting.
-- New sidebar section: **Consolidation** with Consolidated Reports.
+- **Project Costing** (new sidebar section)
+  - Project Master: create/manage projects with budget, client, dates, status
+  - Project Cost Ledger: assign vouchers/expenses to projects
+  - Project P&L Report: revenue vs cost per project, profit margin
+  - Project Dashboard: summary cards, progress bars, status overview
+- **Customer Portal** (new sidebar section)
+  - Customer Master: manage customers with contact, credit limit, outstanding balance
+  - Customer Ledger View: ledger statement per customer
+  - Outstanding Receivables: aging analysis (0-30, 31-60, 61-90, 90+ days)
+  - Customer Statement: printable statement with transactions
+- **Vendor Portal** (new sidebar section)
+  - Vendor Master: manage vendors with contact, credit terms, outstanding balance
+  - Vendor Ledger View: ledger statement per vendor
+  - Outstanding Payables: aging analysis
+  - Vendor Statement: printable statement
 
 ### Modify
-- `App.tsx`: Add 4 new nav items + 2 section headers, render the 4 new components, update version to v20.0, add keys to ROLE_ALLOWED_KEYS for Admin and Accountant, add VIEW_LABELS entries.
+- App.tsx: add new nav sections (Project Costing, Customer Portal, Vendor Portal), new view keys, imports, RBAC keys
+- Version bump to v21.0
 
 ### Remove
-- Nothing. All existing features preserved.
+- Nothing
 
 ## Implementation Plan
-1. Create `BudgetMaster.tsx` — form to create/list budgets (localStorage).
-2. Create `BudgetVsActual.tsx` — table comparing budget vs actual with variance, CSV export.
-3. Create `ForecastingDashboard.tsx` — trend bars + projected figures from actual data.
-4. Create `ConsolidatedReports.tsx` — multi-company selector + consolidated BS/PL tabs + CSV export.
-5. Update `App.tsx` — imports, NAV_ITEMS, VIEW_LABELS, ROLE_ALLOWED_KEYS, renderMain(), version bump to v20.0.
+1. Create ProjectMaster.tsx — project CRUD with budget, client, dates, status
+2. Create ProjectCostLedger.tsx — assign/view costs per project
+3. Create ProjectPL.tsx — project-wise P&L report
+4. Create ProjectDashboard.tsx — project summary dashboard
+5. Create CustomerMaster.tsx — customer CRUD with outstanding tracking
+6. Create CustomerLedger.tsx — ledger per customer with aging
+7. Create VendorMaster.tsx — vendor CRUD with outstanding tracking
+8. Create VendorLedger.tsx — ledger per vendor with aging
+9. Update App.tsx — add nav items, routes, imports, RBAC
