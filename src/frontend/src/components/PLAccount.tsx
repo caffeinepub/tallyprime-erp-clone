@@ -1,9 +1,13 @@
+import { Loader2, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import type { Company, Ledger, LedgerGroup } from "../backend.d";
 import {
   useGetAllLedgerGroups,
   useGetAllLedgers,
   useGetTrialBalance,
 } from "../hooks/useQueries";
+import { callOpenAI } from "../utils/openai";
 
 interface Props {
   company: Company;
@@ -30,7 +34,6 @@ export default function PLAccount({ company }: Props) {
   const { data: groups = [], isLoading: gLoading } = useGetAllLedgerGroups();
 
   const isLoading = tbLoading || lLoading || gLoading;
-
   const groupMap = new Map<bigint, LedgerGroup>();
   for (const g of groups) groupMap.set(g.id, g);
 
@@ -108,6 +111,27 @@ export default function PLAccount({ company }: Props) {
   const grossProfit = totalIncome - totalDirectExp;
   const netProfit = grossProfit - totalIndirectExp;
 
+  const [aiExplain, setAiExplain] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+
+  const handleExplain = async () => {
+    setAiOpen(true);
+    setAiExplain("");
+    setAiLoading(true);
+    try {
+      const text = await callOpenAI(
+        `P&L Account for ${company.name}. Total Income: ₹${totalIncome.toLocaleString("en-IN")}, Net Profit/Loss: ₹${netProfit.toLocaleString("en-IN")}. Explain in simple terms in Hindi or English for a small business owner.`,
+      );
+      setAiExplain(text);
+    } catch (e: any) {
+      toast.error(e.message);
+      setAiOpen(false);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div
@@ -123,6 +147,44 @@ export default function PLAccount({ company }: Props) {
 
   return (
     <div className="h-full overflow-auto p-4" data-ocid="pl_account.panel">
+      <div className="flex justify-end mb-2">
+        <button
+          type="button"
+          data-ocid="pl_account.primary_button"
+          onClick={handleExplain}
+          className="flex items-center gap-1 text-[11px] text-teal border border-teal/40 px-2 py-1 hover:bg-teal/10"
+        >
+          <Sparkles size={11} /> Explain with AI
+        </button>
+      </div>
+      {aiOpen && (
+        <div className="mb-4 border border-teal/40 bg-teal/5 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] text-teal font-semibold">
+              AI Explanation
+            </span>
+            <button
+              type="button"
+              onClick={() => setAiOpen(false)}
+              className="text-[10px] text-muted-foreground hover:text-foreground"
+            >
+              ✕
+            </button>
+          </div>
+          {aiLoading ? (
+            <div className="flex items-center gap-2">
+              <Loader2 size={12} className="animate-spin text-teal" />
+              <span className="text-[11px] text-muted-foreground">
+                Analyzing...
+              </span>
+            </div>
+          ) : (
+            <p className="text-[12px] text-foreground leading-relaxed whitespace-pre-wrap">
+              {aiExplain}
+            </p>
+          )}
+        </div>
+      )}
       <div className="text-center mb-4">
         <div className="text-[15px] font-bold text-foreground">
           {company.name}

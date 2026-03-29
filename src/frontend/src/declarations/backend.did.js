@@ -47,16 +47,6 @@ export const BankTransaction = IDL.Record({
   'reconciledDate' : IDL.Opt(Time),
   'companyId' : IDL.Nat,
 });
-export const AppUser = IDL.Record({
-  'id' : IDL.Nat,
-  'username' : IDL.Text,
-  'passwordHash' : IDL.Text,
-  'role' : IDL.Text,
-  'companyId' : IDL.Opt(IDL.Nat),
-  'isActive' : IDL.Bool,
-  'createdAt' : IDL.Int,
-});
-
 export const ChequeEntry = IDL.Record({
   'id' : IDL.Nat,
   'status' : IDL.Text,
@@ -236,6 +226,15 @@ export const StockVoucher = IDL.Record({
   'narration' : IDL.Text,
   'companyId' : IDL.Nat,
 });
+export const AppUser = IDL.Record({
+  'id' : IDL.Nat,
+  'username' : IDL.Text,
+  'createdAt' : Time,
+  'role' : IDL.Text,
+  'isActive' : IDL.Bool,
+  'passwordHash' : IDL.Text,
+  'companyId' : IDL.Opt(IDL.Nat),
+});
 export const VoucherEntry = IDL.Record({
   'ledgerId' : IDL.Nat,
   'entryType' : IDL.Text,
@@ -370,6 +369,7 @@ export const idlService = IDL.Service({
       [LedgerGroup],
       [],
     ),
+  'changePassword' : IDL.Func([IDL.Nat, IDL.Text], [IDL.Bool], []),
   'createBankAccount' : IDL.Func(
       [
         IDL.Nat,
@@ -513,11 +513,18 @@ export const idlService = IDL.Service({
       [IDL.Record({ 'voucher' : StockVoucher, 'voucherId' : IDL.Nat })],
       [],
     ),
+  'createUser' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Opt(IDL.Nat)],
+      [AppUser],
+      [],
+    ),
   'createVoucher' : IDL.Func(
       [IDL.Nat, IDL.Text, IDL.Nat, Time, IDL.Text, IDL.Vec(VoucherEntry)],
       [IDL.Record({ 'voucher' : Voucher, 'voucherId' : IDL.Nat })],
       [],
     ),
+  'deleteUser' : IDL.Func([IDL.Nat], [IDL.Bool], []),
+  'exportAllData' : IDL.Func([], [IDL.Text], ['query']),
   'getAllBankAccounts' : IDL.Func([IDL.Nat], [IDL.Vec(BankAccount)], ['query']),
   'getAllCheques' : IDL.Func([IDL.Nat], [IDL.Vec(ChequeEntry)], ['query']),
   'getAllCompanies' : IDL.Func([], [IDL.Vec(Company)], ['query']),
@@ -546,6 +553,7 @@ export const idlService = IDL.Service({
       [IDL.Vec(StockVoucher)],
       ['query'],
     ),
+  'getAllUsers' : IDL.Func([], [IDL.Vec(AppUser)], []),
   'getBankBalance' : IDL.Func([IDL.Nat, IDL.Nat], [IDL.Float64], ['query']),
   'getBankStatement' : IDL.Func(
       [IDL.Nat, IDL.Nat, Time, Time],
@@ -565,6 +573,21 @@ export const idlService = IDL.Service({
   'getCostCentreSummary' : IDL.Func(
       [IDL.Nat],
       [IDL.Vec(CostCentreSummaryEntry)],
+      ['query'],
+    ),
+  'getDataSummary' : IDL.Func(
+      [],
+      [
+        IDL.Record({
+          'gstVouchers' : IDL.Nat,
+          'employees' : IDL.Nat,
+          'bankAccounts' : IDL.Nat,
+          'vouchers' : IDL.Nat,
+          'ledgers' : IDL.Nat,
+          'stockItems' : IDL.Nat,
+          'companies' : IDL.Nat,
+        }),
+      ],
       ['query'],
     ),
   'getDayBook' : IDL.Func([IDL.Nat, Time], [IDL.Vec(DayBookEntry)], ['query']),
@@ -745,15 +768,13 @@ export const idlService = IDL.Service({
       [StockItem],
       [],
     ),
+  'updateUser' : IDL.Func(
+      [IDL.Nat, IDL.Text, IDL.Text, IDL.Opt(IDL.Nat), IDL.Bool],
+      [AppUser],
+      [],
+    ),
+  'validateAllData' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
   'verifyUser' : IDL.Func([IDL.Text, IDL.Text], [IDL.Opt(AppUser)], []),
-  'createUser' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Opt(IDL.Nat)], [AppUser], []),
-  'getAllUsers' : IDL.Func([], [IDL.Vec(AppUser)], ['query']),
-  'updateUser' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Opt(IDL.Nat), IDL.Bool], [AppUser], []),
-  'deleteUser' : IDL.Func([IDL.Nat], [IDL.Bool], []),
-  'changePassword' : IDL.Func([IDL.Nat, IDL.Text], [IDL.Bool], []),
-    'exportAllData' : IDL.Func([], [IDL.Text], ['query']),
-    'validateAllData' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
-    'getDataSummary' : IDL.Func([], [IDL.Record({'companies': IDL.Nat, 'ledgers': IDL.Nat, 'vouchers': IDL.Nat, 'gstVouchers': IDL.Nat, 'stockItems': IDL.Nat, 'employees': IDL.Nat, 'bankAccounts': IDL.Nat})], ['query']),
 });
 
 export const idlInitArgs = [];
@@ -977,6 +998,15 @@ export const idlFactory = ({ IDL }) => {
     'narration' : IDL.Text,
     'companyId' : IDL.Nat,
   });
+  const AppUser = IDL.Record({
+    'id' : IDL.Nat,
+    'username' : IDL.Text,
+    'createdAt' : Time,
+    'role' : IDL.Text,
+    'isActive' : IDL.Bool,
+    'passwordHash' : IDL.Text,
+    'companyId' : IDL.Opt(IDL.Nat),
+  });
   const VoucherEntry = IDL.Record({
     'ledgerId' : IDL.Nat,
     'entryType' : IDL.Text,
@@ -1111,6 +1141,7 @@ export const idlFactory = ({ IDL }) => {
         [LedgerGroup],
         [],
       ),
+    'changePassword' : IDL.Func([IDL.Nat, IDL.Text], [IDL.Bool], []),
     'createBankAccount' : IDL.Func(
         [
           IDL.Nat,
@@ -1265,11 +1296,18 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Record({ 'voucher' : StockVoucher, 'voucherId' : IDL.Nat })],
         [],
       ),
+    'createUser' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Opt(IDL.Nat)],
+        [AppUser],
+        [],
+      ),
     'createVoucher' : IDL.Func(
         [IDL.Nat, IDL.Text, IDL.Nat, Time, IDL.Text, IDL.Vec(VoucherEntry)],
         [IDL.Record({ 'voucher' : Voucher, 'voucherId' : IDL.Nat })],
         [],
       ),
+    'deleteUser' : IDL.Func([IDL.Nat], [IDL.Bool], []),
+    'exportAllData' : IDL.Func([], [IDL.Text], ['query']),
     'getAllBankAccounts' : IDL.Func(
         [IDL.Nat],
         [IDL.Vec(BankAccount)],
@@ -1302,6 +1340,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(StockVoucher)],
         ['query'],
       ),
+    'getAllUsers' : IDL.Func([], [IDL.Vec(AppUser)], []),
     'getBankBalance' : IDL.Func([IDL.Nat, IDL.Nat], [IDL.Float64], ['query']),
     'getBankStatement' : IDL.Func(
         [IDL.Nat, IDL.Nat, Time, Time],
@@ -1321,6 +1360,21 @@ export const idlFactory = ({ IDL }) => {
     'getCostCentreSummary' : IDL.Func(
         [IDL.Nat],
         [IDL.Vec(CostCentreSummaryEntry)],
+        ['query'],
+      ),
+    'getDataSummary' : IDL.Func(
+        [],
+        [
+          IDL.Record({
+            'gstVouchers' : IDL.Nat,
+            'employees' : IDL.Nat,
+            'bankAccounts' : IDL.Nat,
+            'vouchers' : IDL.Nat,
+            'ledgers' : IDL.Nat,
+            'stockItems' : IDL.Nat,
+            'companies' : IDL.Nat,
+          }),
+        ],
         ['query'],
       ),
     'getDayBook' : IDL.Func(
@@ -1505,15 +1559,13 @@ export const idlFactory = ({ IDL }) => {
         [StockItem],
         [],
       ),
-    'verifyUser' : IDL.Func([IDL.Text, IDL.Text], [IDL.Opt(AppUser)], []),
-    'createUser' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Opt(IDL.Nat)], [AppUser], []),
-    'getAllUsers' : IDL.Func([], [IDL.Vec(AppUser)], ['query']),
-    'updateUser' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Opt(IDL.Nat), IDL.Bool], [AppUser], []),
-    'deleteUser' : IDL.Func([IDL.Nat], [IDL.Bool], []),
-    'changePassword' : IDL.Func([IDL.Nat, IDL.Text], [IDL.Bool], []),
-    'exportAllData' : IDL.Func([], [IDL.Text], ['query']),
+    'updateUser' : IDL.Func(
+        [IDL.Nat, IDL.Text, IDL.Text, IDL.Opt(IDL.Nat), IDL.Bool],
+        [AppUser],
+        [],
+      ),
     'validateAllData' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
-    'getDataSummary' : IDL.Func([], [IDL.Record({'companies': IDL.Nat, 'ledgers': IDL.Nat, 'vouchers': IDL.Nat, 'gstVouchers': IDL.Nat, 'stockItems': IDL.Nat, 'employees': IDL.Nat, 'bankAccounts': IDL.Nat})], ['query']),
+    'verifyUser' : IDL.Func([IDL.Text, IDL.Text], [IDL.Opt(AppUser)], []),
   });
 };
 

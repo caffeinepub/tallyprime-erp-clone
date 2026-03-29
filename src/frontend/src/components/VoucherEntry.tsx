@@ -1,3 +1,4 @@
+import { Sparkles } from "lucide-react";
 import {
   AlertCircle,
   CheckCircle,
@@ -10,6 +11,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import type { Company, VoucherEntry as VEntry } from "../backend.d";
 import { useCreateVoucher, useGetAllLedgers } from "../hooks/useQueries";
+import { callOpenAI } from "../utils/openai";
 import InvoicePrint from "./InvoicePrint";
 
 interface Props {
@@ -50,6 +52,7 @@ export default function VoucherEntry({
     { ledgerId: "", entryType: "Cr", amount: "" },
   ]);
   const [submitted, setSubmitted] = useState(false);
+  const [aiNarrating, setAiNarrating] = useState(false);
   const [showInvoicePrint, setShowInvoicePrint] = useState(false);
 
   const companyLedgers = (ledgers || []).filter(
@@ -81,6 +84,26 @@ export default function VoucherEntry({
     setEntries((prev) =>
       prev.map((row, idx) => (idx === i ? { ...row, [field]: value } : row)),
     );
+
+  const handleAINarration = async () => {
+    setAiNarrating(true);
+    try {
+      const entryList = entries
+        .filter((e) => e.ledgerId && Number.parseFloat(e.amount) > 0)
+        .map(
+          (e) =>
+            `${ledgerNameMap[e.ledgerId] || e.ledgerId} ${e.entryType} ₹${e.amount}`,
+        )
+        .join(", ");
+      const prompt = `Generate a professional accounting narration in 1 sentence for: ${voucherType} voucher, amount ₹${totalDr || totalCr}, entries: ${entryList}`;
+      const result = await callOpenAI(prompt);
+      setNarration(result.trim());
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setAiNarrating(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!isBalanced) {
@@ -228,6 +251,21 @@ export default function VoucherEntry({
               onChange={(e) => setNarration(e.target.value)}
               placeholder="Enter narration..."
             />
+            <button
+              type="button"
+              data-ocid="voucher.primary_button"
+              onClick={handleAINarration}
+              disabled={aiNarrating}
+              title="Generate AI narration"
+              className="mt-1 flex items-center gap-1 text-[10px] text-teal hover:text-teal/80 disabled:opacity-50"
+            >
+              {aiNarrating ? (
+                <span className="animate-spin inline-block w-3 h-3 border border-teal border-t-transparent rounded-full" />
+              ) : (
+                <Sparkles size={11} />
+              )}
+              AI Narration
+            </button>
           </div>
         </div>
 

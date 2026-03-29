@@ -7,15 +7,6 @@ export interface None {
     __kind__: "None";
 }
 export type Option<T> = Some<T> | None;
-
-export interface AppUser {
-    id: bigint;
-    username: string;
-    role: string;
-    companyId: bigint | null;
-    isActive: boolean;
-}
-
 export interface StockItem {
     id: bigint;
     stockGroupId: bigint;
@@ -228,6 +219,15 @@ export interface Company {
     address: string;
     financialYearStart: string;
 }
+export interface AppUser {
+    id: bigint;
+    username: string;
+    createdAt: Time;
+    role: string;
+    isActive: boolean;
+    passwordHash: string;
+    companyId?: bigint;
+}
 export interface CostCentreSummaryEntry {
     totalAllocated: number;
     centreId: bigint;
@@ -359,6 +359,7 @@ export interface Ledger {
 export interface backendInterface {
     addExchangeRate(currencyId: bigint, date: Time, rate: number, narration: string): Promise<ExchangeRateEntry>;
     addLedgerGroup(name: string, parentGroup: bigint | null, nature: string): Promise<LedgerGroup>;
+    changePassword(id: bigint, newPasswordHash: string): Promise<boolean>;
     createBankAccount(companyId: bigint, accountName: string, accountNumber: string, ifscCode: string, bankName: string, branchName: string, linkedLedgerId: bigint, openingBalance: number): Promise<BankAccount>;
     createBankTransaction(companyId: bigint, bankAccountId: bigint, date: Time, description: string, amount: number, transactionType: string, voucherId: bigint | null): Promise<BankTransaction>;
     createChequeEntry(companyId: bigint, bankAccountId: bigint, chequeNumber: string, chequeDate: Time, amount: number, payeeName: string, chequeType: string, remarks: string): Promise<ChequeEntry>;
@@ -381,10 +382,13 @@ export interface backendInterface {
         voucher: StockVoucher;
         voucherId: bigint;
     }>;
+    createUser(username: string, passwordHash: string, role: string, companyId: bigint | null): Promise<AppUser>;
     createVoucher(companyId: bigint, voucherType: string, voucherNumber: bigint, date: Time, narration: string, entries: Array<VoucherEntry>): Promise<{
         voucher: Voucher;
         voucherId: bigint;
     }>;
+    deleteUser(id: bigint): Promise<boolean>;
+    exportAllData(): Promise<string>;
     getAllBankAccounts(companyId: bigint): Promise<Array<BankAccount>>;
     getAllCheques(companyId: bigint): Promise<Array<ChequeEntry>>;
     getAllCompanies(): Promise<Array<Company>>;
@@ -401,11 +405,21 @@ export interface backendInterface {
     getAllStockGroups(): Promise<Array<StockGroup>>;
     getAllStockItems(): Promise<Array<StockItem>>;
     getAllStockVouchers(companyId: bigint): Promise<Array<StockVoucher>>;
+    getAllUsers(): Promise<Array<AppUser>>;
     getBankBalance(companyId: bigint, bankAccountId: bigint): Promise<number>;
     getBankStatement(companyId: bigint, bankAccountId: bigint, fromDate: Time, toDate: Time): Promise<Array<BankTransaction>>;
     getBankTransactions(companyId: bigint, bankAccountId: bigint): Promise<Array<BankTransaction>>;
     getChequesByBankAccount(companyId: bigint, bankAccountId: bigint): Promise<Array<ChequeEntry>>;
     getCostCentreSummary(companyId: bigint): Promise<Array<CostCentreSummaryEntry>>;
+    getDataSummary(): Promise<{
+        gstVouchers: bigint;
+        employees: bigint;
+        bankAccounts: bigint;
+        vouchers: bigint;
+        ledgers: bigint;
+        stockItems: bigint;
+        companies: bigint;
+    }>;
     getDayBook(companyId: bigint, date: Time): Promise<Array<DayBookEntry>>;
     getDepreciationHistory(assetId: bigint): Promise<Array<DepreciationEntry>>;
     getExchangeRates(currencyId: bigint): Promise<Array<ExchangeRateEntry>>;
@@ -435,13 +449,7 @@ export interface backendInterface {
     updateHSNCode(id: bigint, code: string, description: string, gstRate: number): Promise<HSNCode>;
     updateLedger(ledgerId: bigint, name: string, groupId: bigint, openingBalance: number, balanceType: string): Promise<Ledger>;
     updateStockItem(id: bigint, name: string, stockGroupId: bigint, unit: string, openingQty: number, openingRate: number, gstRate: number, hsnCode: string): Promise<StockItem>;
-    createUser(username: string, passwordHash: string, role: string, companyId: bigint | null): Promise<AppUser>;
-    verifyUser(username: string, passwordHash: string): Promise<AppUser | null>;
-    getAllUsers(): Promise<Array<AppUser>>;
     updateUser(id: bigint, username: string, role: string, companyId: bigint | null, isActive: boolean): Promise<AppUser>;
-    deleteUser(id: bigint): Promise<boolean>;
-    changePassword(id: bigint, newPasswordHash: string): Promise<boolean>;
-    exportAllData(): Promise<string>;
-    validateAllData(): Promise<string[]>;
-    getDataSummary(): Promise<{companies: bigint; ledgers: bigint; vouchers: bigint; gstVouchers: bigint; stockItems: bigint; employees: bigint; bankAccounts: bigint}>;
+    validateAllData(): Promise<Array<string>>;
+    verifyUser(username: string, passwordHash: string): Promise<AppUser | null>;
 }

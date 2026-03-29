@@ -9,9 +9,7 @@ import Order "mo:core/Order";
 import Iter "mo:core/Iter";
 import Float "mo:core/Float";
 
-
-
-persistent actor {
+actor {
   type Company = {
     id : Nat;
     name : Text;
@@ -511,7 +509,6 @@ persistent actor {
     currencies : Map.Map<Nat, Currency>;
     exchangeRates : Map.Map<Nat, ExchangeRateEntry>;
   };
-
 
   // PHASE 8: Role-Based Access Control
   type AppUser = {
@@ -1909,5 +1906,4 @@ persistent actor {
       bankAccounts = bankAccounts.size();
     }
   };
-
 };

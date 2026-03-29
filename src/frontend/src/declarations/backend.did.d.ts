@@ -10,6 +10,15 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface AppUser {
+  'id' : bigint,
+  'username' : string,
+  'createdAt' : Time,
+  'role' : string,
+  'isActive' : boolean,
+  'passwordHash' : string,
+  'companyId' : [] | [bigint],
+}
 export interface BankAccount {
   'id' : bigint,
   'linkedLedgerId' : bigint,
@@ -331,16 +340,6 @@ export interface TaxLedgerBalance {
   'taxType' : string,
 }
 export type Time = bigint;
-export interface AppUser {
-  'id' : bigint,
-  'username' : string,
-  'passwordHash' : string,
-  'role' : string,
-  'companyId' : [] | [bigint],
-  'isActive' : boolean,
-  'createdAt' : bigint,
-}
-
 export interface TrialBalanceEntry {
   'creditTotal' : number,
   'debitTotal' : number,
@@ -366,6 +365,7 @@ export interface _SERVICE {
     ExchangeRateEntry
   >,
   'addLedgerGroup' : ActorMethod<[string, [] | [bigint], string], LedgerGroup>,
+  'changePassword' : ActorMethod<[bigint, string], boolean>,
   'createBankAccount' : ActorMethod<
     [bigint, string, string, string, string, string, bigint, number],
     BankAccount
@@ -447,10 +447,13 @@ export interface _SERVICE {
     [bigint, string, bigint, Time, string, Array<StockVoucherEntry>],
     { 'voucher' : StockVoucher, 'voucherId' : bigint }
   >,
+  'createUser' : ActorMethod<[string, string, string, [] | [bigint]], AppUser>,
   'createVoucher' : ActorMethod<
     [bigint, string, bigint, Time, string, Array<VoucherEntry>],
     { 'voucher' : Voucher, 'voucherId' : bigint }
   >,
+  'deleteUser' : ActorMethod<[bigint], boolean>,
+  'exportAllData' : ActorMethod<[], string>,
   'getAllBankAccounts' : ActorMethod<[bigint], Array<BankAccount>>,
   'getAllCheques' : ActorMethod<[bigint], Array<ChequeEntry>>,
   'getAllCompanies' : ActorMethod<[], Array<Company>>,
@@ -467,6 +470,7 @@ export interface _SERVICE {
   'getAllStockGroups' : ActorMethod<[], Array<StockGroup>>,
   'getAllStockItems' : ActorMethod<[], Array<StockItem>>,
   'getAllStockVouchers' : ActorMethod<[bigint], Array<StockVoucher>>,
+  'getAllUsers' : ActorMethod<[], Array<AppUser>>,
   'getBankBalance' : ActorMethod<[bigint, bigint], number>,
   'getBankStatement' : ActorMethod<
     [bigint, bigint, Time, Time],
@@ -475,6 +479,18 @@ export interface _SERVICE {
   'getBankTransactions' : ActorMethod<[bigint, bigint], Array<BankTransaction>>,
   'getChequesByBankAccount' : ActorMethod<[bigint, bigint], Array<ChequeEntry>>,
   'getCostCentreSummary' : ActorMethod<[bigint], Array<CostCentreSummaryEntry>>,
+  'getDataSummary' : ActorMethod<
+    [],
+    {
+      'gstVouchers' : bigint,
+      'employees' : bigint,
+      'bankAccounts' : bigint,
+      'vouchers' : bigint,
+      'ledgers' : bigint,
+      'stockItems' : bigint,
+      'companies' : bigint,
+    }
+  >,
   'getDayBook' : ActorMethod<[bigint, Time], Array<DayBookEntry>>,
   'getDepreciationHistory' : ActorMethod<[bigint], Array<DepreciationEntry>>,
   'getExchangeRates' : ActorMethod<[bigint], Array<ExchangeRateEntry>>,
@@ -578,12 +594,12 @@ export interface _SERVICE {
     [bigint, string, bigint, string, number, number, number, string],
     StockItem
   >,
+  'updateUser' : ActorMethod<
+    [bigint, string, string, [] | [bigint], boolean],
+    AppUser
+  >,
+  'validateAllData' : ActorMethod<[], Array<string>>,
   'verifyUser' : ActorMethod<[string, string], [] | [AppUser]>,
-  'createUser' : ActorMethod<[string, string, string, [] | [bigint]], AppUser>,
-  'getAllUsers' : ActorMethod<[], Array<AppUser>>,
-  'updateUser' : ActorMethod<[bigint, string, string, [] | [bigint], boolean], AppUser>,
-  'deleteUser' : ActorMethod<[bigint], boolean>,
-  'changePassword' : ActorMethod<[bigint, string], boolean>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

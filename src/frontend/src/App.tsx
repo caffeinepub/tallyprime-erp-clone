@@ -12,17 +12,23 @@ import {
   LayoutDashboard,
   Lock,
   LogOut,
+  MessageCircle,
+  Mic,
   Moon,
+  PieChart,
   Receipt,
   Settings,
   Shield,
   Sun,
+  Target,
   TrendingUp,
   User,
   Users,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Company } from "./backend.d";
+import AIAnomalyDetector from "./components/AIAnomalyDetector";
+import AISettings from "./components/AISettings";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
 import AssetRegister from "./components/AssetRegister";
 import AuditTrail from "./components/AuditTrail";
@@ -31,10 +37,13 @@ import BankAccounts from "./components/BankAccounts";
 import BankReconciliation from "./components/BankReconciliation";
 import BankStatement from "./components/BankStatement";
 import BankingAPIConfig from "./components/BankingAPIConfig";
+import BudgetMaster from "./components/BudgetMaster";
+import BudgetVsActual from "./components/BudgetVsActual";
 import CashFlowStatement from "./components/CashFlowStatement";
 import ChequeManagement from "./components/ChequeManagement";
 import ChequeRegister from "./components/ChequeRegister";
 import CompanySelection from "./components/CompanySelection";
+import ConsolidatedReports from "./components/ConsolidatedReports";
 import CostCentreMaster from "./components/CostCentreMaster";
 import CostCentreSummary from "./components/CostCentreSummary";
 import CurrencyMaster from "./components/CurrencyMaster";
@@ -44,6 +53,7 @@ import EmployeeMaster from "./components/EmployeeMaster";
 import ExchangeRates from "./components/ExchangeRates";
 import ExportCenter from "./components/ExportCenter";
 import FixedAssetMaster from "./components/FixedAssetMaster";
+import ForecastingDashboard from "./components/ForecastingDashboard";
 import GSTR1Report from "./components/GSTR1Report";
 import GSTR3BReport from "./components/GSTR3BReport";
 import GSTSettings from "./components/GSTSettings";
@@ -72,7 +82,9 @@ import StockVoucherEntry from "./components/StockVoucherEntry";
 import TaxLedgers from "./components/TaxLedgers";
 import TrialBalance from "./components/TrialBalance";
 import UserManagement from "./components/UserManagement";
+import VoiceVoucherEntry from "./components/VoiceVoucherEntry";
 import VoucherEntry from "./components/VoucherEntry";
+import WhatsAppConfig from "./components/WhatsAppConfig";
 import type { AppUser } from "./types/rbac";
 import { logAuditEvent } from "./utils/auditLog";
 
@@ -324,6 +336,52 @@ const NAV_ITEMS: NavItem[] = [
     icon: Bell,
     fkey: null,
   },
+  // Phase 13: AI Tools
+  {
+    key: "__header_ai_tools",
+    label: "AI Tools",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "aiSettings", label: "AI Settings", icon: Settings, fkey: null },
+  {
+    key: "aiAnomalyDetector",
+    label: "Anomaly Detector",
+    icon: Shield,
+    fkey: null,
+  },
+  { key: "voiceEntry", label: "Voice Entry", icon: Mic, fkey: null },
+  // Phase 20: Budgeting
+  {
+    key: "__header_budgeting",
+    label: "Budgeting & Forecasting",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "budgetMaster", label: "Budget Master", icon: Target, fkey: null },
+  {
+    key: "budgetVsActual",
+    label: "Budget vs Actual",
+    icon: BarChart3,
+    fkey: null,
+  },
+  { key: "forecasting", label: "Forecasting", icon: TrendingUp, fkey: null },
+  // Phase 20: Consolidation
+  {
+    key: "__header_consolidation",
+    label: "Consolidation",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "consolidatedReports",
+    label: "Consolidated Reports",
+    icon: PieChart,
+    fkey: null,
+  },
   {
     key: "__header_reports",
     label: "Reports",
@@ -411,6 +469,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: Bell,
     fkey: null,
   },
+  // Phase 13: WhatsApp
+  {
+    key: "whatsAppConfig",
+    label: "WhatsApp Config",
+    icon: MessageCircle,
+    fkey: null,
+  },
   // Phase 10: Audit Trail (Admin only)
   {
     key: "__header_audit",
@@ -496,10 +561,20 @@ const VIEW_LABELS: Record<string, string> = {
   paymentGateways: "Payment Gateways",
   bankingAPIs: "Banking API Config",
   invoiceDispatch: "Email/SMS Dispatch",
+  // Phase 13
+  aiSettings: "AI Settings",
+  aiAnomalyDetector: "AI Anomaly Detector",
+  voiceEntry: "Voice Entry",
+  whatsAppConfig: "WhatsApp Config",
   // Phase 11
   reportBuilder: "Report Builder",
   scheduledReports: "Scheduled Reports",
   notifications: "Notification Center",
+  // Phase 20
+  budgetMaster: "Budget Master",
+  budgetVsActual: "Budget vs Actual",
+  forecasting: "Forecasting Dashboard",
+  consolidatedReports: "Consolidated Reports",
 };
 
 // Role-based allowed nav keys
@@ -554,6 +629,14 @@ const ROLE_ALLOWED_KEYS: Record<string, Set<string>> = {
     "notifications",
     "exportCenter",
     "invoiceTemplates",
+    "aiSettings",
+    "aiAnomalyDetector",
+    "voiceEntry",
+    "whatsAppConfig",
+    "budgetMaster",
+    "budgetVsActual",
+    "forecasting",
+    "consolidatedReports",
   ]),
   Auditor: new Set([
     "gateway",
@@ -570,6 +653,9 @@ const ROLE_ALLOWED_KEYS: Record<string, Set<string>> = {
     "notifications",
     "exportCenter",
     "invoiceTemplates",
+    "budgetVsActual",
+    "forecasting",
+    "consolidatedReports",
   ]),
   Viewer: new Set([
     "gateway",
@@ -584,6 +670,9 @@ const ROLE_ALLOWED_KEYS: Record<string, Set<string>> = {
     "notifications",
     "exportCenter",
     "invoiceTemplates",
+    "budgetVsActual",
+    "forecasting",
+    "consolidatedReports",
   ]),
 };
 
@@ -989,6 +1078,22 @@ export default function App() {
     if (view === "paymentGateways") return <PaymentGatewayConfig />;
     if (view === "bankingAPIs") return <BankingAPIConfig />;
     if (view === "invoiceDispatch") return <InvoiceDispatch />;
+    // Phase 13: AI Tools + WhatsApp
+    if (view === "aiSettings") return <AISettings />;
+    if (view === "aiAnomalyDetector")
+      return <AIAnomalyDetector company={activeCompany} />;
+    if (view === "voiceEntry")
+      return <VoiceVoucherEntry company={activeCompany} />;
+    if (view === "whatsAppConfig") return <WhatsAppConfig />;
+    // Phase 20: Budgeting & Forecasting
+    if (view === "budgetMaster")
+      return <BudgetMaster company={activeCompany} />;
+    if (view === "budgetVsActual")
+      return <BudgetVsActual company={activeCompany} />;
+    if (view === "forecasting")
+      return <ForecastingDashboard company={activeCompany} />;
+    if (view === "consolidatedReports")
+      return <ConsolidatedReports currentCompany={activeCompany} />;
     if (view.startsWith("voucher")) {
       const vType = VOUCHER_TYPE_MAP[view] || "Journal";
       return (
@@ -1013,7 +1118,7 @@ export default function App() {
             HisabKitab Pro
           </span>
           <span className="text-[10px] text-muted-foreground font-mono ml-1">
-            v12.0
+            v20.0
           </span>
         </div>
 
@@ -1136,7 +1241,7 @@ export default function App() {
           {/* BOTTOM STATUS BAR */}
           <footer className="h-8 flex items-center px-4 gap-6 border-t border-border bg-secondary/30 flex-shrink-0">
             <span className="text-[10px] font-mono text-muted-foreground">
-              Ver. 12.0
+              Ver. 20.0
             </span>
             <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
               {[

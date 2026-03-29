@@ -301,6 +301,15 @@ export interface Company {
     address: string;
     financialYearStart: string;
 }
+export interface AppUser {
+    id: bigint;
+    username: string;
+    createdAt: Time;
+    role: string;
+    isActive: boolean;
+    passwordHash: string;
+    companyId?: bigint;
+}
 export interface CostCentreSummaryEntry {
     totalAllocated: number;
     centreId: bigint;
@@ -432,6 +441,7 @@ export interface Ledger {
 export interface backendInterface {
     addExchangeRate(currencyId: bigint, date: Time, rate: number, narration: string): Promise<ExchangeRateEntry>;
     addLedgerGroup(name: string, parentGroup: bigint | null, nature: string): Promise<LedgerGroup>;
+    changePassword(id: bigint, newPasswordHash: string): Promise<boolean>;
     createBankAccount(companyId: bigint, accountName: string, accountNumber: string, ifscCode: string, bankName: string, branchName: string, linkedLedgerId: bigint, openingBalance: number): Promise<BankAccount>;
     createBankTransaction(companyId: bigint, bankAccountId: bigint, date: Time, description: string, amount: number, transactionType: string, voucherId: bigint | null): Promise<BankTransaction>;
     createChequeEntry(companyId: bigint, bankAccountId: bigint, chequeNumber: string, chequeDate: Time, amount: number, payeeName: string, chequeType: string, remarks: string): Promise<ChequeEntry>;
@@ -454,10 +464,13 @@ export interface backendInterface {
         voucher: StockVoucher;
         voucherId: bigint;
     }>;
+    createUser(username: string, passwordHash: string, role: string, companyId: bigint | null): Promise<AppUser>;
     createVoucher(companyId: bigint, voucherType: string, voucherNumber: bigint, date: Time, narration: string, entries: Array<VoucherEntry>): Promise<{
         voucher: Voucher;
         voucherId: bigint;
     }>;
+    deleteUser(id: bigint): Promise<boolean>;
+    exportAllData(): Promise<string>;
     getAllBankAccounts(companyId: bigint): Promise<Array<BankAccount>>;
     getAllCheques(companyId: bigint): Promise<Array<ChequeEntry>>;
     getAllCompanies(): Promise<Array<Company>>;
@@ -474,11 +487,21 @@ export interface backendInterface {
     getAllStockGroups(): Promise<Array<StockGroup>>;
     getAllStockItems(): Promise<Array<StockItem>>;
     getAllStockVouchers(companyId: bigint): Promise<Array<StockVoucher>>;
+    getAllUsers(): Promise<Array<AppUser>>;
     getBankBalance(companyId: bigint, bankAccountId: bigint): Promise<number>;
     getBankStatement(companyId: bigint, bankAccountId: bigint, fromDate: Time, toDate: Time): Promise<Array<BankTransaction>>;
     getBankTransactions(companyId: bigint, bankAccountId: bigint): Promise<Array<BankTransaction>>;
     getChequesByBankAccount(companyId: bigint, bankAccountId: bigint): Promise<Array<ChequeEntry>>;
     getCostCentreSummary(companyId: bigint): Promise<Array<CostCentreSummaryEntry>>;
+    getDataSummary(): Promise<{
+        gstVouchers: bigint;
+        employees: bigint;
+        bankAccounts: bigint;
+        vouchers: bigint;
+        ledgers: bigint;
+        stockItems: bigint;
+        companies: bigint;
+    }>;
     getDayBook(companyId: bigint, date: Time): Promise<Array<DayBookEntry>>;
     getDepreciationHistory(assetId: bigint): Promise<Array<DepreciationEntry>>;
     getExchangeRates(currencyId: bigint): Promise<Array<ExchangeRateEntry>>;
@@ -508,8 +531,11 @@ export interface backendInterface {
     updateHSNCode(id: bigint, code: string, description: string, gstRate: number): Promise<HSNCode>;
     updateLedger(ledgerId: bigint, name: string, groupId: bigint, openingBalance: number, balanceType: string): Promise<Ledger>;
     updateStockItem(id: bigint, name: string, stockGroupId: bigint, unit: string, openingQty: number, openingRate: number, gstRate: number, hsnCode: string): Promise<StockItem>;
+    updateUser(id: bigint, username: string, role: string, companyId: bigint | null, isActive: boolean): Promise<AppUser>;
+    validateAllData(): Promise<Array<string>>;
+    verifyUser(username: string, passwordHash: string): Promise<AppUser | null>;
 }
-import type { BankTransaction as _BankTransaction, ChequeEntry as _ChequeEntry, CostCentre as _CostCentre, GSTSettings as _GSTSettings, GSTVoucher as _GSTVoucher, GSTVoucherEntry as _GSTVoucherEntry, LedgerGroup as _LedgerGroup, PayrollVoucher as _PayrollVoucher, SalaryStructure as _SalaryStructure, StockGroup as _StockGroup, StockVoucher as _StockVoucher, StockVoucherEntry as _StockVoucherEntry, Time as _Time } from "./declarations/backend.did.d.ts";
+import type { AppUser as _AppUser, BankTransaction as _BankTransaction, ChequeEntry as _ChequeEntry, CostCentre as _CostCentre, GSTSettings as _GSTSettings, GSTVoucher as _GSTVoucher, GSTVoucherEntry as _GSTVoucherEntry, LedgerGroup as _LedgerGroup, PayrollVoucher as _PayrollVoucher, SalaryStructure as _SalaryStructure, StockGroup as _StockGroup, StockVoucher as _StockVoucher, StockVoucherEntry as _StockVoucherEntry, Time as _Time } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
     async addExchangeRate(arg0: bigint, arg1: Time, arg2: number, arg3: string): Promise<ExchangeRateEntry> {
@@ -538,6 +564,20 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.addLedgerGroup(arg0, to_candid_opt_n1(this._uploadFile, this._downloadFile, arg1), arg2);
             return from_candid_LedgerGroup_n2(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async changePassword(arg0: bigint, arg1: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.changePassword(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.changePassword(arg0, arg1);
+            return result;
         }
     }
     async createBankAccount(arg0: bigint, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: bigint, arg7: number): Promise<BankAccount> {
@@ -770,6 +810,20 @@ export class Backend implements backendInterface {
             return from_candid_record_n28(this._uploadFile, this._downloadFile, result);
         }
     }
+    async createUser(arg0: string, arg1: string, arg2: string, arg3: bigint | null): Promise<AppUser> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createUser(arg0, arg1, arg2, to_candid_opt_n1(this._uploadFile, this._downloadFile, arg3));
+                return from_candid_AppUser_n34(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createUser(arg0, arg1, arg2, to_candid_opt_n1(this._uploadFile, this._downloadFile, arg3));
+            return from_candid_AppUser_n34(this._uploadFile, this._downloadFile, result);
+        }
+    }
     async createVoucher(arg0: bigint, arg1: string, arg2: bigint, arg3: Time, arg4: string, arg5: Array<VoucherEntry>): Promise<{
         voucher: Voucher;
         voucherId: bigint;
@@ -784,6 +838,34 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.createVoucher(arg0, arg1, arg2, arg3, arg4, arg5);
+            return result;
+        }
+    }
+    async deleteUser(arg0: bigint): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteUser(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteUser(arg0);
+            return result;
+        }
+    }
+    async exportAllData(): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.exportAllData();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.exportAllData();
             return result;
         }
     }
@@ -805,14 +887,14 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getAllCheques(arg0);
-                return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n36(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getAllCheques(arg0);
-            return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n36(this._uploadFile, this._downloadFile, result);
         }
     }
     async getAllCompanies(): Promise<Array<Company>> {
@@ -833,14 +915,14 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getAllCostCentres(arg0);
-                return from_candid_vec_n35(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n37(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getAllCostCentres(arg0);
-            return from_candid_vec_n35(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n37(this._uploadFile, this._downloadFile, result);
         }
     }
     async getAllCurrencies(): Promise<Array<Currency>> {
@@ -889,14 +971,14 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getAllGSTVouchers(arg0);
-                return from_candid_vec_n36(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n38(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getAllGSTVouchers(arg0);
-            return from_candid_vec_n36(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n38(this._uploadFile, this._downloadFile, result);
         }
     }
     async getAllHSNCodes(): Promise<Array<HSNCode>> {
@@ -917,14 +999,14 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getAllLedgerGroups();
-                return from_candid_vec_n37(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n39(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getAllLedgerGroups();
-            return from_candid_vec_n37(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n39(this._uploadFile, this._downloadFile, result);
         }
     }
     async getAllLedgers(): Promise<Array<Ledger>> {
@@ -973,14 +1055,14 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getAllStockGroups();
-                return from_candid_vec_n38(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n40(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getAllStockGroups();
-            return from_candid_vec_n38(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n40(this._uploadFile, this._downloadFile, result);
         }
     }
     async getAllStockItems(): Promise<Array<StockItem>> {
@@ -1001,14 +1083,28 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getAllStockVouchers(arg0);
-                return from_candid_vec_n39(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n41(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getAllStockVouchers(arg0);
-            return from_candid_vec_n39(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n41(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getAllUsers(): Promise<Array<AppUser>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllUsers();
+                return from_candid_vec_n42(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllUsers();
+            return from_candid_vec_n42(this._uploadFile, this._downloadFile, result);
         }
     }
     async getBankBalance(arg0: bigint, arg1: bigint): Promise<number> {
@@ -1029,42 +1125,42 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getBankStatement(arg0, arg1, arg2, arg3);
-                return from_candid_vec_n40(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n43(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getBankStatement(arg0, arg1, arg2, arg3);
-            return from_candid_vec_n40(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n43(this._uploadFile, this._downloadFile, result);
         }
     }
     async getBankTransactions(arg0: bigint, arg1: bigint): Promise<Array<BankTransaction>> {
         if (this.processError) {
             try {
                 const result = await this.actor.getBankTransactions(arg0, arg1);
-                return from_candid_vec_n40(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n43(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getBankTransactions(arg0, arg1);
-            return from_candid_vec_n40(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n43(this._uploadFile, this._downloadFile, result);
         }
     }
     async getChequesByBankAccount(arg0: bigint, arg1: bigint): Promise<Array<ChequeEntry>> {
         if (this.processError) {
             try {
                 const result = await this.actor.getChequesByBankAccount(arg0, arg1);
-                return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n36(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getChequesByBankAccount(arg0, arg1);
-            return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n36(this._uploadFile, this._downloadFile, result);
         }
     }
     async getCostCentreSummary(arg0: bigint): Promise<Array<CostCentreSummaryEntry>> {
@@ -1078,6 +1174,28 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.getCostCentreSummary(arg0);
+            return result;
+        }
+    }
+    async getDataSummary(): Promise<{
+        gstVouchers: bigint;
+        employees: bigint;
+        bankAccounts: bigint;
+        vouchers: bigint;
+        ledgers: bigint;
+        stockItems: bigint;
+        companies: bigint;
+    }> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getDataSummary();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getDataSummary();
             return result;
         }
     }
@@ -1155,14 +1273,14 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getGSTSettings(arg0);
-                return from_candid_opt_n41(this._uploadFile, this._downloadFile, result);
+                return from_candid_opt_n44(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getGSTSettings(arg0);
-            return from_candid_opt_n41(this._uploadFile, this._downloadFile, result);
+            return from_candid_opt_n44(this._uploadFile, this._downloadFile, result);
         }
     }
     async getLatestRate(arg0: string): Promise<number | null> {
@@ -1183,28 +1301,28 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getPayrollVoucher(arg0, arg1, arg2);
-                return from_candid_opt_n42(this._uploadFile, this._downloadFile, result);
+                return from_candid_opt_n45(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getPayrollVoucher(arg0, arg1, arg2);
-            return from_candid_opt_n42(this._uploadFile, this._downloadFile, result);
+            return from_candid_opt_n45(this._uploadFile, this._downloadFile, result);
         }
     }
     async getSalaryStructure(arg0: bigint, arg1: bigint): Promise<SalaryStructure | null> {
         if (this.processError) {
             try {
                 const result = await this.actor.getSalaryStructure(arg0, arg1);
-                return from_candid_opt_n43(this._uploadFile, this._downloadFile, result);
+                return from_candid_opt_n46(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getSalaryStructure(arg0, arg1);
-            return from_candid_opt_n43(this._uploadFile, this._downloadFile, result);
+            return from_candid_opt_n46(this._uploadFile, this._downloadFile, result);
         }
     }
     async getStockLedger(arg0: bigint, arg1: bigint): Promise<Array<StockLedgerEntry>> {
@@ -1267,14 +1385,14 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getUnreconciledTransactions(arg0, arg1);
-                return from_candid_vec_n40(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n43(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getUnreconciledTransactions(arg0, arg1);
-            return from_candid_vec_n40(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n43(this._uploadFile, this._downloadFile, result);
         }
     }
     async initializePredefinedLedgerGroups(): Promise<void> {
@@ -1487,88 +1605,51 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-
-    // RBAC methods - Phase 8 fix
-    async verifyUser(username: string, passwordHash: string): Promise<import("./types/rbac").AppUser | null> {
-        try {
-            const result = await (this.actor as any).verifyUser(username, passwordHash);
-            if (!result || result.length === 0) return null;
-            const u = result[0];
-            return { id: u.id, username: u.username, role: u.role, companyId: u.companyId && u.companyId.length > 0 ? u.companyId[0] : null, isActive: u.isActive };
-        } catch(e) {
-            if (this.processError) this.processError(e);
-            throw e;
+    async updateUser(arg0: bigint, arg1: string, arg2: string, arg3: bigint | null, arg4: boolean): Promise<AppUser> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateUser(arg0, arg1, arg2, to_candid_opt_n1(this._uploadFile, this._downloadFile, arg3), arg4);
+                return from_candid_AppUser_n34(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateUser(arg0, arg1, arg2, to_candid_opt_n1(this._uploadFile, this._downloadFile, arg3), arg4);
+            return from_candid_AppUser_n34(this._uploadFile, this._downloadFile, result);
         }
     }
-    async createUser(username: string, passwordHash: string, role: string, companyId: bigint | null): Promise<import("./types/rbac").AppUser> {
-        try {
-            const result = await (this.actor as any).createUser(username, passwordHash, role, companyId !== null ? [companyId] : []);
-            return { id: result.id, username: result.username, role: result.role, companyId: result.companyId && result.companyId.length > 0 ? result.companyId[0] : null, isActive: result.isActive };
-        } catch(e) {
-            if (this.processError) this.processError(e);
-            throw e;
+    async validateAllData(): Promise<Array<string>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.validateAllData();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.validateAllData();
+            return result;
         }
     }
-    async getAllUsers(): Promise<Array<import("./types/rbac").AppUser>> {
-        try {
-            const results = await (this.actor as any).getAllUsers();
-            return results.map((u: any) => ({ id: u.id, username: u.username, role: u.role, companyId: u.companyId && u.companyId.length > 0 ? u.companyId[0] : null, isActive: u.isActive }));
-        } catch(e) {
-            if (this.processError) this.processError(e);
-            throw e;
+    async verifyUser(arg0: string, arg1: string): Promise<AppUser | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.verifyUser(arg0, arg1);
+                return from_candid_opt_n47(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.verifyUser(arg0, arg1);
+            return from_candid_opt_n47(this._uploadFile, this._downloadFile, result);
         }
     }
-    async updateUser(id: bigint, username: string, role: string, companyId: bigint | null, isActive: boolean): Promise<import("./types/rbac").AppUser> {
-        try {
-            const result = await (this.actor as any).updateUser(id, username, role, companyId !== null ? [companyId] : [], isActive);
-            return { id: result.id, username: result.username, role: result.role, companyId: result.companyId && result.companyId.length > 0 ? result.companyId[0] : null, isActive: result.isActive };
-        } catch(e) {
-            if (this.processError) this.processError(e);
-            throw e;
-        }
-    }
-    async deleteUser(id: bigint): Promise<boolean> {
-        try {
-            return await (this.actor as any).deleteUser(id);
-        } catch(e) {
-            if (this.processError) this.processError(e);
-            throw e;
-        }
-    }
-    async changePassword(id: bigint, newPasswordHash: string): Promise<boolean> {
-        try {
-            return await (this.actor as any).changePassword(id, newPasswordHash);
-        } catch(e) {
-            if (this.processError) this.processError(e);
-            throw e;
-        }
-    }
-    // Phase 9: Data Management
-    async exportAllData(): Promise<string> {
-        try {
-            return await (this.actor as any).exportAllData();
-        } catch(e) {
-            if (this.processError) this.processError(e);
-            throw e;
-        }
-    }
-    async validateAllData(): Promise<string[]> {
-        try {
-            return await (this.actor as any).validateAllData();
-        } catch(e) {
-            if (this.processError) this.processError(e);
-            throw e;
-        }
-    }
-    async getDataSummary(): Promise<{companies: bigint; ledgers: bigint; vouchers: bigint; gstVouchers: bigint; stockItems: bigint; employees: bigint; bankAccounts: bigint}> {
-        try {
-            return await (this.actor as any).getDataSummary();
-        } catch(e) {
-            if (this.processError) this.processError(e);
-            throw e;
-        }
-    }
-
+}
+function from_candid_AppUser_n34(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _AppUser): AppUser {
+    return from_candid_record_n35(_uploadFile, _downloadFile, value);
 }
 function from_candid_BankTransaction_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _BankTransaction): BankTransaction {
     return from_candid_record_n6(_uploadFile, _downloadFile, value);
@@ -1606,14 +1687,17 @@ function from_candid_opt_n22(_uploadFile: (file: ExternalBlob) => Promise<Uint8A
 function from_candid_opt_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [bigint]): bigint | null {
     return value.length === 0 ? null : value[0];
 }
-function from_candid_opt_n41(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_GSTSettings]): GSTSettings | null {
+function from_candid_opt_n44(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_GSTSettings]): GSTSettings | null {
     return value.length === 0 ? null : value[0];
 }
-function from_candid_opt_n42(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_PayrollVoucher]): PayrollVoucher | null {
+function from_candid_opt_n45(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_PayrollVoucher]): PayrollVoucher | null {
     return value.length === 0 ? null : value[0];
 }
-function from_candid_opt_n43(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_SalaryStructure]): SalaryStructure | null {
+function from_candid_opt_n46(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_SalaryStructure]): SalaryStructure | null {
     return value.length === 0 ? null : value[0];
+}
+function from_candid_opt_n47(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_AppUser]): AppUser | null {
+    return value.length === 0 ? null : from_candid_AppUser_n34(_uploadFile, _downloadFile, value[0]);
 }
 function from_candid_opt_n7(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_Time]): Time | null {
     return value.length === 0 ? null : value[0];
@@ -1834,6 +1918,33 @@ function from_candid_record_n33(_uploadFile: (file: ExternalBlob) => Promise<Uin
         amount: value.amount
     };
 }
+function from_candid_record_n35(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    id: bigint;
+    username: string;
+    createdAt: _Time;
+    role: string;
+    isActive: boolean;
+    passwordHash: string;
+    companyId: [] | [bigint];
+}): {
+    id: bigint;
+    username: string;
+    createdAt: Time;
+    role: string;
+    isActive: boolean;
+    passwordHash: string;
+    companyId?: bigint;
+} {
+    return {
+        id: value.id,
+        username: value.username,
+        createdAt: value.createdAt,
+        role: value.role,
+        isActive: value.isActive,
+        passwordHash: value.passwordHash,
+        companyId: record_opt_to_undefined(from_candid_opt_n4(_uploadFile, _downloadFile, value.companyId))
+    };
+}
 function from_candid_record_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     id: bigint;
     isReconciled: boolean;
@@ -1915,25 +2026,28 @@ function from_candid_vec_n18(_uploadFile: (file: ExternalBlob) => Promise<Uint8A
 function from_candid_vec_n31(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_StockVoucherEntry>): Array<StockVoucherEntry> {
     return value.map((x)=>from_candid_StockVoucherEntry_n32(_uploadFile, _downloadFile, x));
 }
-function from_candid_vec_n34(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_ChequeEntry>): Array<ChequeEntry> {
+function from_candid_vec_n36(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_ChequeEntry>): Array<ChequeEntry> {
     return value.map((x)=>from_candid_ChequeEntry_n8(_uploadFile, _downloadFile, x));
 }
-function from_candid_vec_n35(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_CostCentre>): Array<CostCentre> {
+function from_candid_vec_n37(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_CostCentre>): Array<CostCentre> {
     return value.map((x)=>from_candid_CostCentre_n10(_uploadFile, _downloadFile, x));
 }
-function from_candid_vec_n36(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_GSTVoucher>): Array<GSTVoucher> {
+function from_candid_vec_n38(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_GSTVoucher>): Array<GSTVoucher> {
     return value.map((x)=>from_candid_GSTVoucher_n16(_uploadFile, _downloadFile, x));
 }
-function from_candid_vec_n37(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_LedgerGroup>): Array<LedgerGroup> {
+function from_candid_vec_n39(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_LedgerGroup>): Array<LedgerGroup> {
     return value.map((x)=>from_candid_LedgerGroup_n2(_uploadFile, _downloadFile, x));
 }
-function from_candid_vec_n38(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_StockGroup>): Array<StockGroup> {
+function from_candid_vec_n40(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_StockGroup>): Array<StockGroup> {
     return value.map((x)=>from_candid_StockGroup_n23(_uploadFile, _downloadFile, x));
 }
-function from_candid_vec_n39(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_StockVoucher>): Array<StockVoucher> {
+function from_candid_vec_n41(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_StockVoucher>): Array<StockVoucher> {
     return value.map((x)=>from_candid_StockVoucher_n29(_uploadFile, _downloadFile, x));
 }
-function from_candid_vec_n40(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_BankTransaction>): Array<BankTransaction> {
+function from_candid_vec_n42(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_AppUser>): Array<AppUser> {
+    return value.map((x)=>from_candid_AppUser_n34(_uploadFile, _downloadFile, x));
+}
+function from_candid_vec_n43(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_BankTransaction>): Array<BankTransaction> {
     return value.map((x)=>from_candid_BankTransaction_n5(_uploadFile, _downloadFile, x));
 }
 function to_candid_GSTVoucherEntry_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: GSTVoucherEntry): _GSTVoucherEntry {
