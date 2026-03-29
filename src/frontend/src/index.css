@@ -1,0 +1,133 @@
+@import url("https://fonts.googleapis.com/css2?family=General+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ── DARK THEME (default) ─────────────────────────────────────── */
+  :root,
+  [data-theme="dark"] {
+    --background: 19.5% 0.03 220;
+    --foreground: 92% 0.02 210;
+    --card: 22% 0.035 220;
+    --card-foreground: 92% 0.02 210;
+    --popover: 24% 0.04 220;
+    --popover-foreground: 92% 0.02 210;
+    --primary: 60% 0.12 195;
+    --primary-foreground: 15% 0.02 220;
+    --secondary: 26% 0.04 220;
+    --secondary-foreground: 92% 0.02 210;
+    --muted: 26% 0.03 220;
+    --muted-foreground: 70% 0.03 210;
+    --accent: 60% 0.12 195;
+    --accent-foreground: 15% 0.02 220;
+    --destructive: 60% 0.22 25;
+    --destructive-foreground: 98% 0.01 0;
+    --border: 30% 0.04 220;
+    --input: 28% 0.04 220;
+    --ring: 60% 0.12 195;
+    --radius: 3px;
+    --teal: 60% 0.12 195;
+    --teal-bright: 65% 0.14 195;
+    --sidebar: 18% 0.035 220;
+    --sidebar-border: 28% 0.04 220;
+    --sidebar-foreground: 88% 0.02 210;
+    --sidebar-muted: 65% 0.03 210;
+    --topbar: 24% 0.04 220;
+    --numeric: 72% 0.12 220;
+  }
+
+  /* ── LIGHT THEME ──────────────────────────────────────────────── */
+  [data-theme="light"] {
+    --background: 97% 0.005 220;
+    --foreground: 18% 0.03 220;
+    --card: 99% 0.003 220;
+    --card-foreground: 18% 0.03 220;
+    --popover: 100% 0 0;
+    --popover-foreground: 18% 0.03 220;
+    --primary: 48% 0.13 195;
+    --primary-foreground: 98% 0.01 0;
+    --secondary: 93% 0.01 220;
+    --secondary-foreground: 18% 0.03 220;
+    --muted: 91% 0.01 220;
+    --muted-foreground: 50% 0.03 220;
+    --accent: 48% 0.13 195;
+    --accent-foreground: 98% 0.01 0;
+    --destructive: 55% 0.22 25;
+    --destructive-foreground: 98% 0.01 0;
+    --border: 82% 0.02 220;
+    --input: 88% 0.01 220;
+    --ring: 48% 0.13 195;
+    --radius: 3px;
+    --teal: 48% 0.13 195;
+    --teal-bright: 44% 0.15 195;
+    --sidebar: 95% 0.008 220;
+    --sidebar-border: 82% 0.02 220;
+    --sidebar-foreground: 20% 0.03 220;
+    --sidebar-muted: 45% 0.03 220;
+    --topbar: 92% 0.01 220;
+    --numeric: 38% 0.14 220;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-size: 13px;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+}
+
+@layer utilities {
+  .tally-menu-item {
+    @apply flex items-center gap-2 px-3 py-1.5 text-[12px] cursor-pointer hover:bg-teal/20 hover:text-foreground text-sidebar-foreground transition-colors;
+  }
+
+  .tally-menu-item.active {
+    @apply bg-teal/30 text-foreground;
+  }
+
+  .tally-section-header {
+    @apply px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-sidebar-muted;
+  }
+
+  .tally-key-badge {
+    @apply inline-flex items-center justify-center min-w-[28px] h-[18px] px-1 text-[10px] font-mono font-semibold bg-border/60 text-teal rounded-sm border border-border/80;
+  }
+
+  .cmd-btn {
+    @apply flex items-center gap-1 px-2 py-1 text-[11px] font-medium border border-border/60 bg-card hover:bg-secondary cursor-pointer transition-colors;
+  }
+
+  .tally-table th {
+    @apply bg-secondary text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border px-3 py-2 text-left;
+  }
+
+  .tally-table td {
+    @apply text-[12px] border-b border-border/60 px-3 py-1.5;
+  }
+
+  .tally-table tr:hover td {
+    @apply bg-secondary/50;
+  }
+
+  .tally-input {
+    @apply bg-input/30 border border-border text-foreground text-[12px] px-2 py-1.5 focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal/50 rounded-sm w-full;
+  }
+
+  .text-numeric {
+    @apply font-mono;
+    color: oklch(var(--numeric));
+  }
+}
