@@ -16,13 +16,67 @@ import type {
 } from "../backend.d";
 import { useActor } from "./useActor";
 
+// ── localStorage persistence for companies ───────────────────────────────────
+
+const LS_COMPANIES_KEY = "hisabkitab-companies";
+
+function lsGetCompanies(): Company[] {
+  try {
+    const raw = localStorage.getItem(LS_COMPANIES_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw, (key, val) => {
+      if (key === "id" && typeof val === "string" && val.endsWith("n")) {
+        return BigInt(val.slice(0, -1));
+      }
+      return val;
+    });
+  } catch {
+    return [];
+  }
+}
+
+function lsSaveCompanies(companies: Company[]): void {
+  try {
+    const serialized = JSON.stringify(companies, (_key, val) =>
+      typeof val === "bigint" ? `${val.toString()}n` : val,
+    );
+    localStorage.setItem(LS_COMPANIES_KEY, serialized);
+  } catch {}
+}
+
+function lsMergeCompany(company: Company): void {
+  const existing = lsGetCompanies();
+  const idx = existing.findIndex(
+    (c) => c.id.toString() === company.id.toString(),
+  );
+  if (idx >= 0) {
+    existing[idx] = company;
+  } else {
+    existing.push(company);
+  }
+  lsSaveCompanies(existing);
+}
+
+// ── Hooks ────────────────────────────────────────────────────────────────────
+
 export function useGetAllCompanies() {
   const { actor, isFetching } = useActor();
   return useQuery<Company[]>({
     queryKey: ["companies"],
     queryFn: async () => {
-      if (!actor) return [];
-      return actor.getAllCompanies();
+      let backendCompanies: Company[] = [];
+      if (actor) {
+        try {
+          backendCompanies = await actor.getAllCompanies();
+        } catch {
+          // backend unavailable, use localStorage
+        }
+      }
+      if (backendCompanies.length > 0) {
+        lsSaveCompanies(backendCompanies);
+        return backendCompanies;
+      }
+      return lsGetCompanies();
     },
     enabled: !!actor && !isFetching,
   });
@@ -50,7 +104,10 @@ export function useCreateCompany() {
         args.address,
       );
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["companies"] }),
+    onSuccess: (company) => {
+      lsMergeCompany(company);
+      qc.invalidateQueries({ queryKey: ["companies"] });
+    },
   });
 }
 
