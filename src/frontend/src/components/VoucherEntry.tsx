@@ -1,8 +1,16 @@
-import { AlertCircle, CheckCircle, Loader2, Plus, Trash2 } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle,
+  Loader2,
+  Plus,
+  Printer,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Company, VoucherEntry as VEntry } from "../backend.d";
 import { useCreateVoucher, useGetAllLedgers } from "../hooks/useQueries";
+import InvoicePrint from "./InvoicePrint";
 
 interface Props {
   company: Company;
@@ -42,9 +50,14 @@ export default function VoucherEntry({
     { ledgerId: "", entryType: "Cr", amount: "" },
   ]);
   const [submitted, setSubmitted] = useState(false);
+  const [showInvoicePrint, setShowInvoicePrint] = useState(false);
 
   const companyLedgers = (ledgers || []).filter(
     (l) => l.companyId === company.id,
+  );
+
+  const ledgerNameMap = Object.fromEntries(
+    companyLedgers.map((l) => [l.id.toString(), l.name]),
   );
 
   const totalDr = entries
@@ -111,16 +124,40 @@ export default function VoucherEntry({
     }, 1500);
   };
 
+  const printEntries = entries
+    .filter((e) => e.ledgerId && Number.parseFloat(e.amount) > 0)
+    .map((e) => ({
+      ledgerName: ledgerNameMap[e.ledgerId] ?? `Ledger #${e.ledgerId}`,
+      entryType: e.entryType,
+      amount: Number.parseFloat(e.amount) || 0,
+    }));
+
+  const canPrint =
+    (voucherType === "Sales" || voucherType === "Purchase") &&
+    printEntries.length > 0;
+
   return (
     <div className="flex flex-col h-full">
       {/* Panel Header */}
-      <div className="px-4 py-2 bg-secondary/50 border-b border-border">
-        <span className="text-[13px] font-bold uppercase tracking-wide text-foreground">
-          Voucher Entry
-        </span>
-        <span className="ml-3 text-[11px] text-muted-foreground">
-          {company.name}
-        </span>
+      <div className="px-4 py-2 bg-secondary/50 border-b border-border flex items-center justify-between">
+        <div>
+          <span className="text-[13px] font-bold uppercase tracking-wide text-foreground">
+            Voucher Entry
+          </span>
+          <span className="ml-3 text-[11px] text-muted-foreground">
+            {company.name}
+          </span>
+        </div>
+        {canPrint && (
+          <button
+            type="button"
+            data-ocid="voucher.print.button"
+            onClick={() => setShowInvoicePrint(true)}
+            className="flex items-center gap-1.5 px-3 py-1 text-[11px] font-semibold bg-teal/20 border border-teal/40 text-teal hover:bg-teal/30 transition-colors"
+          >
+            <Printer size={12} /> Print Invoice
+          </button>
+        )}
       </div>
 
       {/* Voucher Type Tabs */}
@@ -355,6 +392,18 @@ export default function VoucherEntry({
           {submitted ? "Saved!" : "Accept Voucher (Ctrl+A)"}
         </button>
       </div>
+
+      {/* Invoice Print Modal */}
+      {showInvoicePrint && (
+        <InvoicePrint
+          company={company}
+          voucherType={voucherType}
+          entries={printEntries}
+          voucherDate={date}
+          voucherNumber={voucherNumber}
+          onClose={() => setShowInvoicePrint(false)}
+        />
+      )}
     </div>
   );
 }

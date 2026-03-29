@@ -1,13 +1,16 @@
 import { Toaster } from "@/components/ui/sonner";
 import {
   BarChart3,
+  Bell,
   BookOpen,
   Building2,
   Database,
+  DollarSign,
   FileText,
   Landmark,
   Layers,
   LayoutDashboard,
+  Lock,
   LogOut,
   Moon,
   Receipt,
@@ -20,28 +23,47 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Company } from "./backend.d";
+import AnalyticsDashboard from "./components/AnalyticsDashboard";
+import AssetRegister from "./components/AssetRegister";
+import AuditTrail from "./components/AuditTrail";
 import BalanceSheet from "./components/BalanceSheet";
 import BankAccounts from "./components/BankAccounts";
 import BankReconciliation from "./components/BankReconciliation";
 import BankStatement from "./components/BankStatement";
+import BankingAPIConfig from "./components/BankingAPIConfig";
 import CashFlowStatement from "./components/CashFlowStatement";
 import ChequeManagement from "./components/ChequeManagement";
 import ChequeRegister from "./components/ChequeRegister";
 import CompanySelection from "./components/CompanySelection";
+import CostCentreMaster from "./components/CostCentreMaster";
+import CostCentreSummary from "./components/CostCentreSummary";
+import CurrencyMaster from "./components/CurrencyMaster";
+import DataManagement from "./components/DataManagement";
 import DayBook from "./components/DayBook";
 import EmployeeMaster from "./components/EmployeeMaster";
+import ExchangeRates from "./components/ExchangeRates";
+import ExportCenter from "./components/ExportCenter";
+import FixedAssetMaster from "./components/FixedAssetMaster";
 import GSTR1Report from "./components/GSTR1Report";
 import GSTR3BReport from "./components/GSTR3BReport";
 import GSTSettings from "./components/GSTSettings";
 import GSTVoucherEntry from "./components/GSTVoucherEntry";
 import GatewayHome from "./components/GatewayHome";
 import HSNMaster from "./components/HSNMaster";
+import InvoiceDispatch from "./components/InvoiceDispatch";
+import InvoiceTemplates from "./components/InvoiceTemplates";
 import LedgerList from "./components/LedgerList";
+import LoginScreen from "./components/LoginScreen";
+import NotificationCenter from "./components/NotificationCenter";
 import PLAccount from "./components/PLAccount";
 import PaySlip from "./components/PaySlip";
+import PaymentGatewayConfig from "./components/PaymentGatewayConfig";
 import PayrollRegister from "./components/PayrollRegister";
 import PayrollVoucherEntry from "./components/PayrollVoucherEntry";
+import ReportBuilder from "./components/ReportBuilder";
+import RolePermissions from "./components/RolePermissions";
 import SalaryStructureSetup from "./components/SalaryStructureSetup";
+import ScheduledReports from "./components/ScheduledReports";
 import StockGroups from "./components/StockGroups";
 import StockItems from "./components/StockItems";
 import StockLedger from "./components/StockLedger";
@@ -49,7 +71,10 @@ import StockSummary from "./components/StockSummary";
 import StockVoucherEntry from "./components/StockVoucherEntry";
 import TaxLedgers from "./components/TaxLedgers";
 import TrialBalance from "./components/TrialBalance";
+import UserManagement from "./components/UserManagement";
 import VoucherEntry from "./components/VoucherEntry";
+import type { AppUser } from "./types/rbac";
+import { logAuditEvent } from "./utils/auditLog";
 
 type NavItem = {
   key: string;
@@ -57,6 +82,7 @@ type NavItem = {
   icon: React.ComponentType<{ size?: number; className?: string }> | null;
   fkey: string | null;
   isHeader?: boolean;
+  adminOnly?: boolean;
 };
 
 const NAV_ITEMS: NavItem[] = [
@@ -192,6 +218,56 @@ const NAV_ITEMS: NavItem[] = [
     fkey: null,
   },
   { key: "bankStatement", label: "Bank Statement", icon: BookOpen, fkey: null },
+  // Phase 7: Fixed Assets
+  {
+    key: "__header_fixedassets",
+    label: "Fixed Assets",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "fixedAssetMaster",
+    label: "Asset Master",
+    icon: Building2,
+    fkey: null,
+  },
+  { key: "assetRegister", label: "Asset Register", icon: FileText, fkey: null },
+  // Phase 7: Cost Centres
+  {
+    key: "__header_costcentres",
+    label: "Cost Centres",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "costCentreMaster", label: "Cost Centres", icon: Layers, fkey: null },
+  {
+    key: "costCentreSummary",
+    label: "Cost Centre Summary",
+    icon: BarChart3,
+    fkey: null,
+  },
+  // Phase 7: Multi-Currency
+  {
+    key: "__header_multicurrency",
+    label: "Multi-Currency",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "currencyMaster",
+    label: "Currency Master",
+    icon: DollarSign,
+    fkey: null,
+  },
+  {
+    key: "exchangeRates",
+    label: "Exchange Rates",
+    icon: TrendingUp,
+    fkey: null,
+  },
   {
     key: "__header_utilities",
     label: "Utilities",
@@ -200,6 +276,54 @@ const NAV_ITEMS: NavItem[] = [
     isHeader: true,
   },
   { key: "gateway", label: "Import", icon: null, fkey: null },
+  // Phase 10: Analytics
+  {
+    key: "__header_analytics",
+    label: "Analytics",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "analyticsDashboard",
+    label: "Business Insights",
+    icon: BarChart3,
+    fkey: null,
+  },
+  // Phase 11: Advanced Reporting
+  {
+    key: "__header_adv_reports",
+    label: "Advanced Reporting",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "reportBuilder",
+    label: "Report Builder",
+    icon: BarChart3,
+    fkey: null,
+  },
+  {
+    key: "scheduledReports",
+    label: "Scheduled Reports",
+    icon: FileText,
+    fkey: null,
+  },
+  // Phase 11: Notifications
+  {
+    key: "__header_notifications",
+    label: "Notifications",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "notifications",
+    label: "Notification Center",
+    icon: Bell,
+    fkey: null,
+  },
   {
     key: "__header_reports",
     label: "Reports",
@@ -212,6 +336,97 @@ const NAV_ITEMS: NavItem[] = [
   { key: "cashFlow", label: "Cash Flow", icon: BarChart3, fkey: null },
   { key: "trialBalance", label: "Trial Balance", icon: BarChart3, fkey: null },
   { key: "dayBook", label: "Day Book", icon: BookOpen, fkey: null },
+  // Phase 8: Security (Admin only)
+  {
+    key: "__header_security",
+    label: "Security",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+    adminOnly: true,
+  },
+  {
+    key: "userManagement",
+    label: "User Management",
+    icon: Shield,
+    fkey: null,
+    adminOnly: true,
+  },
+  {
+    key: "rolePermissions",
+    label: "Roles & Permissions",
+    icon: Lock,
+    fkey: null,
+    adminOnly: true,
+  },
+  // Phase 9: Data Management
+  {
+    key: "__header_data_mgmt",
+    label: "Data Management",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+    adminOnly: true,
+  },
+  {
+    key: "dataManagement",
+    label: "Backup & Export",
+    icon: Database,
+    fkey: null,
+    adminOnly: true,
+  },
+  // Phase 12: Printing & Export
+  {
+    key: "__header_print_export",
+    label: "Printing & Export",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "exportCenter", label: "Export Center", icon: FileText, fkey: null },
+  {
+    key: "invoiceTemplates",
+    label: "Invoice Templates",
+    icon: FileText,
+    fkey: null,
+  },
+  // Phase 12: Integrations
+  {
+    key: "__header_integrations",
+    label: "Integrations",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "paymentGateways",
+    label: "Payment Gateways",
+    icon: DollarSign,
+    fkey: null,
+  },
+  { key: "bankingAPIs", label: "Banking APIs", icon: Landmark, fkey: null },
+  {
+    key: "invoiceDispatch",
+    label: "Email/SMS Dispatch",
+    icon: Bell,
+    fkey: null,
+  },
+  // Phase 10: Audit Trail (Admin only)
+  {
+    key: "__header_audit",
+    label: "Audit Trail",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+    adminOnly: true,
+  },
+  {
+    key: "auditTrail",
+    label: "Activity Log",
+    icon: FileText,
+    fkey: null,
+    adminOnly: true,
+  },
 ];
 
 const VOUCHER_TYPE_MAP: Record<string, string> = {
@@ -260,7 +475,147 @@ const VIEW_LABELS: Record<string, string> = {
   chequeRegister: "Cheque Register",
   bankReconciliation: "Bank Reconciliation",
   bankStatement: "Bank Statement",
+  // Phase 7
+  fixedAssetMaster: "Fixed Asset Master",
+  assetRegister: "Asset Register",
+  costCentreMaster: "Cost Centres",
+  costCentreSummary: "Cost Centre Summary",
+  currencyMaster: "Currency Master",
+  exchangeRates: "Exchange Rates",
+  // Phase 8
+  userManagement: "User Management",
+  rolePermissions: "Roles & Permissions",
+  // Phase 9
+  dataManagement: "Data Management",
+  // Phase 10
+  analyticsDashboard: "Business Insights",
+  auditTrail: "Audit Trail",
+  // Phase 12
+  exportCenter: "Export Center",
+  invoiceTemplates: "Invoice Templates",
+  paymentGateways: "Payment Gateways",
+  bankingAPIs: "Banking API Config",
+  invoiceDispatch: "Email/SMS Dispatch",
+  // Phase 11
+  reportBuilder: "Report Builder",
+  scheduledReports: "Scheduled Reports",
+  notifications: "Notification Center",
 };
+
+// Role-based allowed nav keys
+const ROLE_ALLOWED_KEYS: Record<string, Set<string>> = {
+  Admin: new Set(["*"]), // all
+  Accountant: new Set([
+    "gateway",
+    "ledgers",
+    "voucher",
+    "voucherContra",
+    "voucherPayment",
+    "voucherReceipt",
+    "voucherSales",
+    "voucherPurchase",
+    "gstVoucher",
+    "hsnMaster",
+    "gstr1",
+    "gstr3b",
+    "taxLedgers",
+    "gstSettings",
+    "stockGroups",
+    "stockItems",
+    "stockReceipt",
+    "stockIssue",
+    "stockTransfer",
+    "stockSummary",
+    "stockLedger",
+    "employeeMaster",
+    "salaryStructure",
+    "payrollVoucher",
+    "payrollRegister",
+    "paySlip",
+    "bankAccounts",
+    "issueReceiveCheque",
+    "chequeRegister",
+    "bankReconciliation",
+    "bankStatement",
+    "fixedAssetMaster",
+    "assetRegister",
+    "costCentreMaster",
+    "costCentreSummary",
+    "currencyMaster",
+    "exchangeRates",
+    "balanceSheet",
+    "plAccount",
+    "cashFlow",
+    "trialBalance",
+    "dayBook",
+    "analyticsDashboard",
+    "reportBuilder",
+    "scheduledReports",
+    "notifications",
+    "exportCenter",
+    "invoiceTemplates",
+  ]),
+  Auditor: new Set([
+    "gateway",
+    "trialBalance",
+    "dayBook",
+    "balanceSheet",
+    "plAccount",
+    "cashFlow",
+    "gstr1",
+    "gstr3b",
+    "analyticsDashboard",
+    "reportBuilder",
+    "scheduledReports",
+    "notifications",
+    "exportCenter",
+    "invoiceTemplates",
+  ]),
+  Viewer: new Set([
+    "gateway",
+    "trialBalance",
+    "dayBook",
+    "balanceSheet",
+    "plAccount",
+    "cashFlow",
+    "analyticsDashboard",
+    "reportBuilder",
+    "scheduledReports",
+    "notifications",
+    "exportCenter",
+    "invoiceTemplates",
+  ]),
+};
+
+function isNavAllowed(key: string, role: string): boolean {
+  const allowed = ROLE_ALLOWED_KEYS[role];
+  if (!allowed) return false;
+  if (allowed.has("*")) return true;
+  return allowed.has(key);
+}
+
+function getFilteredNavItems(role: string): NavItem[] {
+  if (role === "Admin") return NAV_ITEMS;
+
+  const result: NavItem[] = [];
+  let pendingHeader: NavItem | null = null;
+
+  for (const item of NAV_ITEMS) {
+    if (item.isHeader) {
+      pendingHeader = item;
+      continue;
+    }
+    if (item.key.startsWith("__")) continue;
+    if (isNavAllowed(item.key, role)) {
+      if (pendingHeader) {
+        result.push(pendingHeader);
+        pendingHeader = null;
+      }
+      result.push(item);
+    }
+  }
+  return result;
+}
 
 function ThemeToggle({
   theme,
@@ -288,24 +643,31 @@ function UserProfileDropdown({
   theme,
   onToggleTheme,
   onNavigate,
+  currentUser,
+  onLogout,
 }: {
   activeCompany: Company | null;
   theme: string;
   onToggleTheme: () => void;
   onNavigate: (v: string) => void;
+  currentUser: AppUser | null;
+  onLogout: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      if (ref.current && !ref.current.contains(e.target as Node))
         setOpen(false);
-      }
     };
     if (open) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
+
+  const displayName = currentUser?.username ?? "Administrator";
+  const displayRole = currentUser?.role ?? "System Admin";
+  const initial = displayName[0]?.toUpperCase() ?? "A";
 
   return (
     <div className="relative" ref={ref}>
@@ -324,18 +686,19 @@ function UserProfileDropdown({
           data-ocid="app.user_profile.popover"
           className="absolute right-0 top-10 w-64 bg-popover border border-border shadow-lg z-50"
         >
-          {/* Avatar + info */}
           <div className="p-4 border-b border-border">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-teal/20 border border-teal/40 flex items-center justify-center flex-shrink-0">
-                <span className="text-[13px] font-bold text-teal">A</span>
+                <span className="text-[13px] font-bold text-teal">
+                  {initial}
+                </span>
               </div>
               <div>
                 <div className="text-[13px] font-semibold text-foreground">
-                  Administrator
+                  {displayName}
                 </div>
                 <div className="text-[11px] text-muted-foreground">
-                  System Admin
+                  {displayRole}
                 </div>
                 {activeCompany && (
                   <div className="text-[10px] text-teal mt-0.5 truncate max-w-[160px]">
@@ -345,10 +708,7 @@ function UserProfileDropdown({
               </div>
             </div>
           </div>
-
-          {/* Menu items */}
           <div className="py-1">
-            {/* Theme toggle row */}
             <div className="flex items-center justify-between px-3 py-2 hover:bg-secondary/60 transition-colors">
               <div className="flex items-center gap-2">
                 {theme === "dark" ? (
@@ -363,17 +723,13 @@ function UserProfileDropdown({
               <button
                 type="button"
                 data-ocid="app.user_profile.theme.toggle"
-                onClick={() => {
-                  onToggleTheme();
-                }}
+                onClick={onToggleTheme}
                 className="text-[10px] px-2 py-0.5 bg-teal/20 border border-teal/40 text-teal hover:bg-teal/30 transition-colors rounded-sm"
               >
                 Switch
               </button>
             </div>
-
             <div className="border-t border-border/60 my-1" />
-
             <button
               type="button"
               data-ocid="app.user_profile.settings.button"
@@ -386,7 +742,6 @@ function UserProfileDropdown({
               <Settings size={13} className="text-muted-foreground" />
               Settings
             </button>
-
             <button
               type="button"
               data-ocid="app.user_profile.signout.button"
@@ -394,10 +749,22 @@ function UserProfileDropdown({
                 onNavigate("companySelect");
                 setOpen(false);
               }}
+              className="flex items-center gap-2 w-full px-3 py-2 text-[12px] text-foreground hover:bg-secondary/60 transition-colors"
+            >
+              <Building2 size={13} className="text-muted-foreground" />
+              Change Company
+            </button>
+            <button
+              type="button"
+              data-ocid="app.user_profile.logout.button"
+              onClick={() => {
+                onLogout();
+                setOpen(false);
+              }}
               className="flex items-center gap-2 w-full px-3 py-2 text-[12px] text-destructive hover:bg-destructive/10 transition-colors"
             >
               <LogOut size={13} />
-              Sign Out / Change Company
+              Logout
             </button>
           </div>
         </div>
@@ -407,6 +774,7 @@ function UserProfileDropdown({
 }
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [activeCompany, setActiveCompany] = useState<Company | null>(null);
   const [view, setView] = useState<string>("companySelect");
   const [activeNav, setActiveNav] = useState<string>("gateway");
@@ -431,6 +799,17 @@ export default function App() {
     setActiveCompany(c);
     navigate("gateway");
   };
+
+  const handleLogout = useCallback(() => {
+    logAuditEvent(
+      currentUser?.username ?? "unknown",
+      currentUser?.role ?? "unknown",
+      "LOGOUT",
+      "Auth",
+      "User logged out",
+    );
+    setCurrentUser(null);
+  }, [currentUser]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -474,6 +853,27 @@ export default function App() {
     return () => window.removeEventListener("keydown", handler);
   }, [activeCompany, view, navigate]);
 
+  // Login gate
+  if (!currentUser) {
+    return (
+      <div className="h-full bg-background" data-theme={theme}>
+        <LoginScreen
+          onLogin={(user) => {
+            setCurrentUser(user);
+            logAuditEvent(
+              user.username,
+              user.role,
+              "LOGIN",
+              "Auth",
+              "User logged in",
+            );
+          }}
+        />
+        <Toaster />
+      </div>
+    );
+  }
+
   if (view === "companySelect") {
     return (
       <div className="h-full bg-background" data-theme={theme}>
@@ -482,6 +882,8 @@ export default function App() {
       </div>
     );
   }
+
+  const filteredNavItems = getFilteredNavItems(currentUser.role);
 
   const renderMain = () => {
     if (!activeCompany) return null;
@@ -554,6 +956,39 @@ export default function App() {
       return <BankReconciliation company={activeCompany} />;
     if (view === "bankStatement")
       return <BankStatement company={activeCompany} />;
+    // Phase 7: Fixed Assets
+    if (view === "fixedAssetMaster")
+      return <FixedAssetMaster company={activeCompany} />;
+    if (view === "assetRegister")
+      return <AssetRegister company={activeCompany} />;
+    // Phase 7: Cost Centres
+    if (view === "costCentreMaster")
+      return <CostCentreMaster company={activeCompany} />;
+    if (view === "costCentreSummary")
+      return <CostCentreSummary company={activeCompany} />;
+    // Phase 7: Multi-Currency
+    if (view === "currencyMaster") return <CurrencyMaster />;
+    if (view === "exchangeRates") return <ExchangeRates />;
+    // Phase 8: Security
+    if (view === "userManagement") return <UserManagement />;
+    if (view === "rolePermissions") return <RolePermissions />;
+    // Phase 9: Data Management
+    if (view === "dataManagement") return <DataManagement />;
+    // Phase 10: Analytics & Audit Trail
+    if (view === "analyticsDashboard")
+      return <AnalyticsDashboard company={activeCompany} />;
+    if (view === "auditTrail") return <AuditTrail currentUser={currentUser} />;
+    // Phase 11: Advanced Reporting & Notifications
+    if (view === "reportBuilder") return <ReportBuilder />;
+    if (view === "scheduledReports") return <ScheduledReports />;
+    if (view === "notifications") return <NotificationCenter />;
+    // Phase 12: Printing & Export
+    if (view === "exportCenter") return <ExportCenter />;
+    if (view === "invoiceTemplates") return <InvoiceTemplates />;
+    // Phase 12: Integrations
+    if (view === "paymentGateways") return <PaymentGatewayConfig />;
+    if (view === "bankingAPIs") return <BankingAPIConfig />;
+    if (view === "invoiceDispatch") return <InvoiceDispatch />;
     if (view.startsWith("voucher")) {
       const vType = VOUCHER_TYPE_MAP[view] || "Journal";
       return (
@@ -572,13 +1007,13 @@ export default function App() {
       <header className="h-14 flex items-center px-4 gap-4 bg-topbar border-b border-border flex-shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-teal flex items-center justify-center rounded-sm">
-            <span className="text-primary-foreground font-bold text-sm">T</span>
+            <span className="text-primary-foreground font-bold text-sm">H</span>
           </div>
           <span className="text-[15px] font-bold text-foreground tracking-tight">
             HisabKitab Pro
           </span>
           <span className="text-[10px] text-muted-foreground font-mono ml-1">
-            v6.0
+            v12.0
           </span>
         </div>
 
@@ -617,6 +1052,8 @@ export default function App() {
           theme={theme}
           onToggleTheme={toggleTheme}
           onNavigate={navigate}
+          currentUser={currentUser}
+          onLogout={handleLogout}
         />
       </header>
 
@@ -635,7 +1072,7 @@ export default function App() {
           </div>
 
           <nav className="flex-1 py-2">
-            {NAV_ITEMS.map((item, i) => {
+            {filteredNavItems.map((item, i) => {
               if (item.isHeader) {
                 return (
                   // biome-ignore lint/suspicious/noArrayIndexKey: static nav headers
@@ -699,7 +1136,7 @@ export default function App() {
           {/* BOTTOM STATUS BAR */}
           <footer className="h-8 flex items-center px-4 gap-6 border-t border-border bg-secondary/30 flex-shrink-0">
             <span className="text-[10px] font-mono text-muted-foreground">
-              Ver. 6.0
+              Ver. 12.0
             </span>
             <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
               {[
@@ -716,6 +1153,15 @@ export default function App() {
               ))}
             </div>
             <div className="flex-1" />
+            {currentUser && (
+              <span className="text-[10px] text-muted-foreground/60">
+                Logged in as{" "}
+                <span className="text-teal/70 font-medium">
+                  {currentUser.username}
+                </span>{" "}
+                ({currentUser.role})
+              </span>
+            )}
           </footer>
         </div>
       </div>

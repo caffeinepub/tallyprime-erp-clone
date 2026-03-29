@@ -56,11 +56,48 @@ export interface Company {
   'address' : string,
   'financialYearStart' : string,
 }
+export interface CostAllocation {
+  'id' : bigint,
+  'ledgerId' : bigint,
+  'date' : Time,
+  'narration' : string,
+  'costCentreId' : bigint,
+  'voucherId' : bigint,
+  'amount' : number,
+  'companyId' : bigint,
+}
+export interface CostCentre {
+  'id' : bigint,
+  'name' : string,
+  'description' : string,
+  'parentCentreId' : [] | [bigint],
+  'companyId' : bigint,
+}
+export interface CostCentreSummaryEntry {
+  'totalAllocated' : number,
+  'centreId' : bigint,
+  'centreName' : string,
+}
+export interface Currency {
+  'id' : bigint,
+  'code' : string,
+  'name' : string,
+  'isBase' : boolean,
+  'exchangeRate' : number,
+  'symbol' : string,
+}
 export interface DayBookEntry {
   'voucherType' : string,
   'entries' : Array<VoucherEntry>,
   'voucherNumber' : bigint,
   'narration' : string,
+}
+export interface DepreciationEntry {
+  'id' : bigint,
+  'assetId' : bigint,
+  'date' : Time,
+  'narration' : string,
+  'amount' : number,
 }
 export interface Employee {
   'id' : bigint,
@@ -75,6 +112,26 @@ export interface Employee {
   'dateOfJoining' : string,
   'department' : string,
   'esiApplicable' : boolean,
+  'companyId' : bigint,
+}
+export interface ExchangeRateEntry {
+  'id' : bigint,
+  'date' : Time,
+  'rate' : number,
+  'narration' : string,
+  'currencyId' : bigint,
+}
+export interface FixedAsset {
+  'id' : bigint,
+  'purchaseDate' : Time,
+  'cost' : number,
+  'salvageValue' : number,
+  'name' : string,
+  'depreciationMethod' : string,
+  'isDisposed' : boolean,
+  'category' : string,
+  'usefulLifeYears' : bigint,
+  'accumulatedDepreciation' : number,
   'companyId' : bigint,
 }
 export interface GSTR1Entry {
@@ -274,6 +331,16 @@ export interface TaxLedgerBalance {
   'taxType' : string,
 }
 export type Time = bigint;
+export interface AppUser {
+  'id' : bigint,
+  'username' : string,
+  'passwordHash' : string,
+  'role' : string,
+  'companyId' : [] | [bigint],
+  'isActive' : boolean,
+  'createdAt' : bigint,
+}
+
 export interface TrialBalanceEntry {
   'creditTotal' : number,
   'debitTotal' : number,
@@ -294,6 +361,10 @@ export interface VoucherEntry {
   'amount' : number,
 }
 export interface _SERVICE {
+  'addExchangeRate' : ActorMethod<
+    [bigint, Time, number, string],
+    ExchangeRateEntry
+  >,
   'addLedgerGroup' : ActorMethod<[string, [] | [bigint], string], LedgerGroup>,
   'createBankAccount' : ActorMethod<
     [bigint, string, string, string, string, string, bigint, number],
@@ -311,6 +382,18 @@ export interface _SERVICE {
     [string, string, string, string, string, string],
     Company
   >,
+  'createCostAllocation' : ActorMethod<
+    [bigint, bigint, bigint, bigint, number, Time, string],
+    CostAllocation
+  >,
+  'createCostCentre' : ActorMethod<
+    [bigint, string, [] | [bigint], string],
+    CostCentre
+  >,
+  'createCurrency' : ActorMethod<
+    [string, string, string, number, boolean],
+    Currency
+  >,
   'createEmployee' : ActorMethod<
     [
       bigint,
@@ -326,6 +409,10 @@ export interface _SERVICE {
       boolean,
     ],
     Employee
+  >,
+  'createFixedAsset' : ActorMethod<
+    [bigint, string, string, Time, number, number, bigint, string],
+    FixedAsset
   >,
   'createGSTVoucher' : ActorMethod<
     [
@@ -367,7 +454,10 @@ export interface _SERVICE {
   'getAllBankAccounts' : ActorMethod<[bigint], Array<BankAccount>>,
   'getAllCheques' : ActorMethod<[bigint], Array<ChequeEntry>>,
   'getAllCompanies' : ActorMethod<[], Array<Company>>,
+  'getAllCostCentres' : ActorMethod<[bigint], Array<CostCentre>>,
+  'getAllCurrencies' : ActorMethod<[], Array<Currency>>,
   'getAllEmployees' : ActorMethod<[bigint], Array<Employee>>,
+  'getAllFixedAssets' : ActorMethod<[bigint], Array<FixedAsset>>,
   'getAllGSTVouchers' : ActorMethod<[bigint], Array<GSTVoucher>>,
   'getAllHSNCodes' : ActorMethod<[], Array<HSNCode>>,
   'getAllLedgerGroups' : ActorMethod<[], Array<LedgerGroup>>,
@@ -384,10 +474,14 @@ export interface _SERVICE {
   >,
   'getBankTransactions' : ActorMethod<[bigint, bigint], Array<BankTransaction>>,
   'getChequesByBankAccount' : ActorMethod<[bigint, bigint], Array<ChequeEntry>>,
+  'getCostCentreSummary' : ActorMethod<[bigint], Array<CostCentreSummaryEntry>>,
   'getDayBook' : ActorMethod<[bigint, Time], Array<DayBookEntry>>,
+  'getDepreciationHistory' : ActorMethod<[bigint], Array<DepreciationEntry>>,
+  'getExchangeRates' : ActorMethod<[bigint], Array<ExchangeRateEntry>>,
   'getGSTR1' : ActorMethod<[bigint, Time, Time], Array<GSTR1Entry>>,
   'getGSTR3B' : ActorMethod<[bigint, Time, Time], GSTR3BSummary>,
   'getGSTSettings' : ActorMethod<[bigint], [] | [GSTSettings]>,
+  'getLatestRate' : ActorMethod<[string], [] | [number]>,
   'getPayrollVoucher' : ActorMethod<
     [bigint, bigint, bigint],
     [] | [PayrollVoucher]
@@ -405,6 +499,10 @@ export interface _SERVICE {
   'reconcileTransaction' : ActorMethod<
     [bigint, [] | [bigint], string],
     BankTransaction
+  >,
+  'recordDepreciation' : ActorMethod<
+    [bigint, number, Time, string],
+    DepreciationEntry
   >,
   'saveSalaryStructure' : ActorMethod<
     [
@@ -431,6 +529,14 @@ export interface _SERVICE {
     BankAccount
   >,
   'updateChequeStatus' : ActorMethod<[bigint, string, string], ChequeEntry>,
+  'updateCostCentre' : ActorMethod<
+    [bigint, string, [] | [bigint], string],
+    CostCentre
+  >,
+  'updateCurrency' : ActorMethod<
+    [bigint, string, string, string, number, boolean],
+    Currency
+  >,
   'updateEmployee' : ActorMethod<
     [
       bigint,
@@ -448,6 +554,21 @@ export interface _SERVICE {
     ],
     Employee
   >,
+  'updateFixedAsset' : ActorMethod<
+    [
+      bigint,
+      string,
+      string,
+      Time,
+      number,
+      number,
+      bigint,
+      string,
+      number,
+      boolean,
+    ],
+    FixedAsset
+  >,
   'updateHSNCode' : ActorMethod<[bigint, string, string, number], HSNCode>,
   'updateLedger' : ActorMethod<
     [bigint, string, bigint, number, string],
@@ -457,6 +578,12 @@ export interface _SERVICE {
     [bigint, string, bigint, string, number, number, number, string],
     StockItem
   >,
+  'verifyUser' : ActorMethod<[string, string], [] | [AppUser]>,
+  'createUser' : ActorMethod<[string, string, string, [] | [bigint]], AppUser>,
+  'getAllUsers' : ActorMethod<[], Array<AppUser>>,
+  'updateUser' : ActorMethod<[bigint, string, string, [] | [bigint], boolean], AppUser>,
+  'deleteUser' : ActorMethod<[bigint], boolean>,
+  'changePassword' : ActorMethod<[bigint, string], boolean>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

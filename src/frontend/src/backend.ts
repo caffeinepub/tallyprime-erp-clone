@@ -129,6 +129,14 @@ export interface ChequeEntry {
     remarks: string;
     companyId: bigint;
 }
+export interface Currency {
+    id: bigint;
+    code: string;
+    name: string;
+    isBase: boolean;
+    exchangeRate: number;
+    symbol: string;
+}
 export interface BankTransaction {
     id: bigint;
     isReconciled: boolean;
@@ -228,6 +236,19 @@ export interface PayrollVoucher {
     entries: Array<PayrollEntry>;
     companyId: bigint;
 }
+export interface FixedAsset {
+    id: bigint;
+    purchaseDate: Time;
+    cost: number;
+    salvageValue: number;
+    name: string;
+    depreciationMethod: string;
+    isDisposed: boolean;
+    category: string;
+    usefulLifeYears: bigint;
+    accumulatedDepreciation: number;
+    companyId: bigint;
+}
 export interface BankAccount {
     id: bigint;
     linkedLedgerId: bigint;
@@ -264,6 +285,13 @@ export interface StockLedgerEntry {
     inValue: number;
     outValue: number;
 }
+export interface DepreciationEntry {
+    id: bigint;
+    assetId: bigint;
+    date: Time;
+    narration: string;
+    amount: number;
+}
 export interface Company {
     id: bigint;
     name: string;
@@ -272,6 +300,11 @@ export interface Company {
     currency: string;
     address: string;
     financialYearStart: string;
+}
+export interface CostCentreSummaryEntry {
+    totalAllocated: number;
+    centreId: bigint;
+    centreName: string;
 }
 export interface Voucher {
     id: bigint;
@@ -344,6 +377,23 @@ export interface SalaryStructure {
     professionalTax: number;
     companyId: bigint;
 }
+export interface CostAllocation {
+    id: bigint;
+    ledgerId: bigint;
+    date: Time;
+    narration: string;
+    costCentreId: bigint;
+    voucherId: bigint;
+    amount: number;
+    companyId: bigint;
+}
+export interface CostCentre {
+    id: bigint;
+    name: string;
+    description: string;
+    parentCentreId?: bigint;
+    companyId: bigint;
+}
 export interface GSTR1Entry {
     invoiceValue: number;
     cess: number;
@@ -364,6 +414,13 @@ export interface DayBookEntry {
     voucherNumber: bigint;
     narration: string;
 }
+export interface ExchangeRateEntry {
+    id: bigint;
+    date: Time;
+    rate: number;
+    narration: string;
+    currencyId: bigint;
+}
 export interface Ledger {
     id: bigint;
     name: string;
@@ -373,12 +430,17 @@ export interface Ledger {
     companyId: bigint;
 }
 export interface backendInterface {
+    addExchangeRate(currencyId: bigint, date: Time, rate: number, narration: string): Promise<ExchangeRateEntry>;
     addLedgerGroup(name: string, parentGroup: bigint | null, nature: string): Promise<LedgerGroup>;
     createBankAccount(companyId: bigint, accountName: string, accountNumber: string, ifscCode: string, bankName: string, branchName: string, linkedLedgerId: bigint, openingBalance: number): Promise<BankAccount>;
     createBankTransaction(companyId: bigint, bankAccountId: bigint, date: Time, description: string, amount: number, transactionType: string, voucherId: bigint | null): Promise<BankTransaction>;
     createChequeEntry(companyId: bigint, bankAccountId: bigint, chequeNumber: string, chequeDate: Time, amount: number, payeeName: string, chequeType: string, remarks: string): Promise<ChequeEntry>;
     createCompany(name: string, financialYearStart: string, financialYearEnd: string, currency: string, gstin: string, address: string): Promise<Company>;
+    createCostAllocation(companyId: bigint, costCentreId: bigint, voucherId: bigint, ledgerId: bigint, amount: number, date: Time, narration: string): Promise<CostAllocation>;
+    createCostCentre(companyId: bigint, name: string, parentCentreId: bigint | null, description: string): Promise<CostCentre>;
+    createCurrency(code: string, symbol: string, name: string, exchangeRate: number, isBase: boolean): Promise<Currency>;
     createEmployee(companyId: bigint, name: string, employeeCode: string, department: string, designation: string, dateOfJoining: string, pan: string, bankAccount: string, bankName: string, pfApplicable: boolean, esiApplicable: boolean): Promise<Employee>;
+    createFixedAsset(companyId: bigint, name: string, category: string, purchaseDate: Time, cost: number, salvageValue: number, usefulLifeYears: bigint, depreciationMethod: string): Promise<FixedAsset>;
     createGSTVoucher(companyId: bigint, voucherType: string, voucherNumber: bigint, date: Time, narration: string, entries: Array<GSTVoucherEntry>, partyName: string, partyGSTIN: string, placeOfSupply: string, isInterState: boolean): Promise<{
         voucher: GSTVoucher;
         voucherId: bigint;
@@ -399,7 +461,10 @@ export interface backendInterface {
     getAllBankAccounts(companyId: bigint): Promise<Array<BankAccount>>;
     getAllCheques(companyId: bigint): Promise<Array<ChequeEntry>>;
     getAllCompanies(): Promise<Array<Company>>;
+    getAllCostCentres(companyId: bigint): Promise<Array<CostCentre>>;
+    getAllCurrencies(): Promise<Array<Currency>>;
     getAllEmployees(companyId: bigint): Promise<Array<Employee>>;
+    getAllFixedAssets(companyId: bigint): Promise<Array<FixedAsset>>;
     getAllGSTVouchers(companyId: bigint): Promise<Array<GSTVoucher>>;
     getAllHSNCodes(): Promise<Array<HSNCode>>;
     getAllLedgerGroups(): Promise<Array<LedgerGroup>>;
@@ -413,10 +478,14 @@ export interface backendInterface {
     getBankStatement(companyId: bigint, bankAccountId: bigint, fromDate: Time, toDate: Time): Promise<Array<BankTransaction>>;
     getBankTransactions(companyId: bigint, bankAccountId: bigint): Promise<Array<BankTransaction>>;
     getChequesByBankAccount(companyId: bigint, bankAccountId: bigint): Promise<Array<ChequeEntry>>;
+    getCostCentreSummary(companyId: bigint): Promise<Array<CostCentreSummaryEntry>>;
     getDayBook(companyId: bigint, date: Time): Promise<Array<DayBookEntry>>;
+    getDepreciationHistory(assetId: bigint): Promise<Array<DepreciationEntry>>;
+    getExchangeRates(currencyId: bigint): Promise<Array<ExchangeRateEntry>>;
     getGSTR1(companyId: bigint, fromDate: Time, toDate: Time): Promise<Array<GSTR1Entry>>;
     getGSTR3B(companyId: bigint, fromDate: Time, toDate: Time): Promise<GSTR3BSummary>;
     getGSTSettings(companyId: bigint): Promise<GSTSettings | null>;
+    getLatestRate(currencyCode: string): Promise<number | null>;
     getPayrollVoucher(companyId: bigint, month: bigint, year: bigint): Promise<PayrollVoucher | null>;
     getSalaryStructure(companyId: bigint, employeeId: bigint): Promise<SalaryStructure | null>;
     getStockLedger(companyId: bigint, stockItemId: bigint): Promise<Array<StockLedgerEntry>>;
@@ -426,19 +495,37 @@ export interface backendInterface {
     getUnreconciledTransactions(companyId: bigint, bankAccountId: bigint): Promise<Array<BankTransaction>>;
     initializePredefinedLedgerGroups(): Promise<void>;
     reconcileTransaction(transactionId: bigint, voucherId: bigint | null, remarks: string): Promise<BankTransaction>;
+    recordDepreciation(assetId: bigint, amount: number, date: Time, narration: string): Promise<DepreciationEntry>;
     saveSalaryStructure(companyId: bigint, employeeId: bigint, basic: number, hra: number, da: number, conveyance: number, specialAllowance: number, otherAllowances: number, pf: number, esi: number, tds: number, professionalTax: number, otherDeductions: number): Promise<SalaryStructure>;
     setGSTSettings(companyId: bigint, registrationType: string, stateCode: string, stateName: string): Promise<GSTSettings>;
     unreconcileTransaction(transactionId: bigint): Promise<BankTransaction>;
     updateBankAccount(id: bigint, accountName: string, accountNumber: string, ifscCode: string, bankName: string, branchName: string, linkedLedgerId: bigint, openingBalance: number, isActive: boolean): Promise<BankAccount>;
     updateChequeStatus(id: bigint, status: string, remarks: string): Promise<ChequeEntry>;
+    updateCostCentre(id: bigint, name: string, parentCentreId: bigint | null, description: string): Promise<CostCentre>;
+    updateCurrency(id: bigint, code: string, symbol: string, name: string, exchangeRate: number, isBase: boolean): Promise<Currency>;
     updateEmployee(id: bigint, name: string, employeeCode: string, department: string, designation: string, dateOfJoining: string, pan: string, bankAccount: string, bankName: string, pfApplicable: boolean, esiApplicable: boolean, isActive: boolean): Promise<Employee>;
+    updateFixedAsset(id: bigint, name: string, category: string, purchaseDate: Time, cost: number, salvageValue: number, usefulLifeYears: bigint, depreciationMethod: string, accumulatedDepreciation: number, isDisposed: boolean): Promise<FixedAsset>;
     updateHSNCode(id: bigint, code: string, description: string, gstRate: number): Promise<HSNCode>;
     updateLedger(ledgerId: bigint, name: string, groupId: bigint, openingBalance: number, balanceType: string): Promise<Ledger>;
     updateStockItem(id: bigint, name: string, stockGroupId: bigint, unit: string, openingQty: number, openingRate: number, gstRate: number, hsnCode: string): Promise<StockItem>;
 }
-import type { BankTransaction as _BankTransaction, ChequeEntry as _ChequeEntry, GSTSettings as _GSTSettings, GSTVoucher as _GSTVoucher, GSTVoucherEntry as _GSTVoucherEntry, LedgerGroup as _LedgerGroup, PayrollVoucher as _PayrollVoucher, SalaryStructure as _SalaryStructure, StockGroup as _StockGroup, StockVoucher as _StockVoucher, StockVoucherEntry as _StockVoucherEntry, Time as _Time } from "./declarations/backend.did.d.ts";
+import type { BankTransaction as _BankTransaction, ChequeEntry as _ChequeEntry, CostCentre as _CostCentre, GSTSettings as _GSTSettings, GSTVoucher as _GSTVoucher, GSTVoucherEntry as _GSTVoucherEntry, LedgerGroup as _LedgerGroup, PayrollVoucher as _PayrollVoucher, SalaryStructure as _SalaryStructure, StockGroup as _StockGroup, StockVoucher as _StockVoucher, StockVoucherEntry as _StockVoucherEntry, Time as _Time } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
+    async addExchangeRate(arg0: bigint, arg1: Time, arg2: number, arg3: string): Promise<ExchangeRateEntry> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addExchangeRate(arg0, arg1, arg2, arg3);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addExchangeRate(arg0, arg1, arg2, arg3);
+            return result;
+        }
+    }
     async addLedgerGroup(arg0: string, arg1: bigint | null, arg2: string): Promise<LedgerGroup> {
         if (this.processError) {
             try {
@@ -509,6 +596,48 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async createCostAllocation(arg0: bigint, arg1: bigint, arg2: bigint, arg3: bigint, arg4: number, arg5: Time, arg6: string): Promise<CostAllocation> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createCostAllocation(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createCostAllocation(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+            return result;
+        }
+    }
+    async createCostCentre(arg0: bigint, arg1: string, arg2: bigint | null, arg3: string): Promise<CostCentre> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createCostCentre(arg0, arg1, to_candid_opt_n1(this._uploadFile, this._downloadFile, arg2), arg3);
+                return from_candid_CostCentre_n10(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createCostCentre(arg0, arg1, to_candid_opt_n1(this._uploadFile, this._downloadFile, arg2), arg3);
+            return from_candid_CostCentre_n10(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async createCurrency(arg0: string, arg1: string, arg2: string, arg3: number, arg4: boolean): Promise<Currency> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createCurrency(arg0, arg1, arg2, arg3, arg4);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createCurrency(arg0, arg1, arg2, arg3, arg4);
+            return result;
+        }
+    }
     async createEmployee(arg0: bigint, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: string, arg7: string, arg8: string, arg9: boolean, arg10: boolean): Promise<Employee> {
         if (this.processError) {
             try {
@@ -523,21 +652,35 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async createFixedAsset(arg0: bigint, arg1: string, arg2: string, arg3: Time, arg4: number, arg5: number, arg6: bigint, arg7: string): Promise<FixedAsset> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createFixedAsset(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createFixedAsset(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+            return result;
+        }
+    }
     async createGSTVoucher(arg0: bigint, arg1: string, arg2: bigint, arg3: Time, arg4: string, arg5: Array<GSTVoucherEntry>, arg6: string, arg7: string, arg8: string, arg9: boolean): Promise<{
         voucher: GSTVoucher;
         voucherId: bigint;
     }> {
         if (this.processError) {
             try {
-                const result = await this.actor.createGSTVoucher(arg0, arg1, arg2, arg3, arg4, to_candid_vec_n10(this._uploadFile, this._downloadFile, arg5), arg6, arg7, arg8, arg9);
-                return from_candid_record_n13(this._uploadFile, this._downloadFile, result);
+                const result = await this.actor.createGSTVoucher(arg0, arg1, arg2, arg3, arg4, to_candid_vec_n12(this._uploadFile, this._downloadFile, arg5), arg6, arg7, arg8, arg9);
+                return from_candid_record_n15(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.createGSTVoucher(arg0, arg1, arg2, arg3, arg4, to_candid_vec_n10(this._uploadFile, this._downloadFile, arg5), arg6, arg7, arg8, arg9);
-            return from_candid_record_n13(this._uploadFile, this._downloadFile, result);
+            const result = await this.actor.createGSTVoucher(arg0, arg1, arg2, arg3, arg4, to_candid_vec_n12(this._uploadFile, this._downloadFile, arg5), arg6, arg7, arg8, arg9);
+            return from_candid_record_n15(this._uploadFile, this._downloadFile, result);
         }
     }
     async createHSNCode(arg0: string, arg1: string, arg2: number): Promise<HSNCode> {
@@ -586,14 +729,14 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.createStockGroup(arg0, to_candid_opt_n1(this._uploadFile, this._downloadFile, arg1), arg2);
-                return from_candid_StockGroup_n21(this._uploadFile, this._downloadFile, result);
+                return from_candid_StockGroup_n23(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.createStockGroup(arg0, to_candid_opt_n1(this._uploadFile, this._downloadFile, arg1), arg2);
-            return from_candid_StockGroup_n21(this._uploadFile, this._downloadFile, result);
+            return from_candid_StockGroup_n23(this._uploadFile, this._downloadFile, result);
         }
     }
     async createStockItem(arg0: bigint, arg1: string, arg2: bigint, arg3: string, arg4: number, arg5: number, arg6: number, arg7: string): Promise<StockItem> {
@@ -616,15 +759,15 @@ export class Backend implements backendInterface {
     }> {
         if (this.processError) {
             try {
-                const result = await this.actor.createStockVoucher(arg0, arg1, arg2, arg3, arg4, to_candid_vec_n23(this._uploadFile, this._downloadFile, arg5));
-                return from_candid_record_n26(this._uploadFile, this._downloadFile, result);
+                const result = await this.actor.createStockVoucher(arg0, arg1, arg2, arg3, arg4, to_candid_vec_n25(this._uploadFile, this._downloadFile, arg5));
+                return from_candid_record_n28(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.createStockVoucher(arg0, arg1, arg2, arg3, arg4, to_candid_vec_n23(this._uploadFile, this._downloadFile, arg5));
-            return from_candid_record_n26(this._uploadFile, this._downloadFile, result);
+            const result = await this.actor.createStockVoucher(arg0, arg1, arg2, arg3, arg4, to_candid_vec_n25(this._uploadFile, this._downloadFile, arg5));
+            return from_candid_record_n28(this._uploadFile, this._downloadFile, result);
         }
     }
     async createVoucher(arg0: bigint, arg1: string, arg2: bigint, arg3: Time, arg4: string, arg5: Array<VoucherEntry>): Promise<{
@@ -662,14 +805,14 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getAllCheques(arg0);
-                return from_candid_vec_n32(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getAllCheques(arg0);
-            return from_candid_vec_n32(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
         }
     }
     async getAllCompanies(): Promise<Array<Company>> {
@@ -683,6 +826,34 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.getAllCompanies();
+            return result;
+        }
+    }
+    async getAllCostCentres(arg0: bigint): Promise<Array<CostCentre>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllCostCentres(arg0);
+                return from_candid_vec_n35(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllCostCentres(arg0);
+            return from_candid_vec_n35(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getAllCurrencies(): Promise<Array<Currency>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllCurrencies();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllCurrencies();
             return result;
         }
     }
@@ -700,18 +871,32 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async getAllFixedAssets(arg0: bigint): Promise<Array<FixedAsset>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllFixedAssets(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllFixedAssets(arg0);
+            return result;
+        }
+    }
     async getAllGSTVouchers(arg0: bigint): Promise<Array<GSTVoucher>> {
         if (this.processError) {
             try {
                 const result = await this.actor.getAllGSTVouchers(arg0);
-                return from_candid_vec_n33(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n36(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getAllGSTVouchers(arg0);
-            return from_candid_vec_n33(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n36(this._uploadFile, this._downloadFile, result);
         }
     }
     async getAllHSNCodes(): Promise<Array<HSNCode>> {
@@ -732,14 +917,14 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getAllLedgerGroups();
-                return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n37(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getAllLedgerGroups();
-            return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n37(this._uploadFile, this._downloadFile, result);
         }
     }
     async getAllLedgers(): Promise<Array<Ledger>> {
@@ -788,14 +973,14 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getAllStockGroups();
-                return from_candid_vec_n35(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n38(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getAllStockGroups();
-            return from_candid_vec_n35(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n38(this._uploadFile, this._downloadFile, result);
         }
     }
     async getAllStockItems(): Promise<Array<StockItem>> {
@@ -816,14 +1001,14 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getAllStockVouchers(arg0);
-                return from_candid_vec_n36(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n39(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getAllStockVouchers(arg0);
-            return from_candid_vec_n36(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n39(this._uploadFile, this._downloadFile, result);
         }
     }
     async getBankBalance(arg0: bigint, arg1: bigint): Promise<number> {
@@ -844,42 +1029,56 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getBankStatement(arg0, arg1, arg2, arg3);
-                return from_candid_vec_n37(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n40(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getBankStatement(arg0, arg1, arg2, arg3);
-            return from_candid_vec_n37(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n40(this._uploadFile, this._downloadFile, result);
         }
     }
     async getBankTransactions(arg0: bigint, arg1: bigint): Promise<Array<BankTransaction>> {
         if (this.processError) {
             try {
                 const result = await this.actor.getBankTransactions(arg0, arg1);
-                return from_candid_vec_n37(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n40(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getBankTransactions(arg0, arg1);
-            return from_candid_vec_n37(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n40(this._uploadFile, this._downloadFile, result);
         }
     }
     async getChequesByBankAccount(arg0: bigint, arg1: bigint): Promise<Array<ChequeEntry>> {
         if (this.processError) {
             try {
                 const result = await this.actor.getChequesByBankAccount(arg0, arg1);
-                return from_candid_vec_n32(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getChequesByBankAccount(arg0, arg1);
-            return from_candid_vec_n32(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getCostCentreSummary(arg0: bigint): Promise<Array<CostCentreSummaryEntry>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getCostCentreSummary(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getCostCentreSummary(arg0);
+            return result;
         }
     }
     async getDayBook(arg0: bigint, arg1: Time): Promise<Array<DayBookEntry>> {
@@ -893,6 +1092,34 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.getDayBook(arg0, arg1);
+            return result;
+        }
+    }
+    async getDepreciationHistory(arg0: bigint): Promise<Array<DepreciationEntry>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getDepreciationHistory(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getDepreciationHistory(arg0);
+            return result;
+        }
+    }
+    async getExchangeRates(arg0: bigint): Promise<Array<ExchangeRateEntry>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getExchangeRates(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getExchangeRates(arg0);
             return result;
         }
     }
@@ -928,42 +1155,56 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getGSTSettings(arg0);
-                return from_candid_opt_n38(this._uploadFile, this._downloadFile, result);
+                return from_candid_opt_n41(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getGSTSettings(arg0);
-            return from_candid_opt_n38(this._uploadFile, this._downloadFile, result);
+            return from_candid_opt_n41(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getLatestRate(arg0: string): Promise<number | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getLatestRate(arg0);
+                return from_candid_opt_n21(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getLatestRate(arg0);
+            return from_candid_opt_n21(this._uploadFile, this._downloadFile, result);
         }
     }
     async getPayrollVoucher(arg0: bigint, arg1: bigint, arg2: bigint): Promise<PayrollVoucher | null> {
         if (this.processError) {
             try {
                 const result = await this.actor.getPayrollVoucher(arg0, arg1, arg2);
-                return from_candid_opt_n39(this._uploadFile, this._downloadFile, result);
+                return from_candid_opt_n42(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getPayrollVoucher(arg0, arg1, arg2);
-            return from_candid_opt_n39(this._uploadFile, this._downloadFile, result);
+            return from_candid_opt_n42(this._uploadFile, this._downloadFile, result);
         }
     }
     async getSalaryStructure(arg0: bigint, arg1: bigint): Promise<SalaryStructure | null> {
         if (this.processError) {
             try {
                 const result = await this.actor.getSalaryStructure(arg0, arg1);
-                return from_candid_opt_n40(this._uploadFile, this._downloadFile, result);
+                return from_candid_opt_n43(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getSalaryStructure(arg0, arg1);
-            return from_candid_opt_n40(this._uploadFile, this._downloadFile, result);
+            return from_candid_opt_n43(this._uploadFile, this._downloadFile, result);
         }
     }
     async getStockLedger(arg0: bigint, arg1: bigint): Promise<Array<StockLedgerEntry>> {
@@ -1026,14 +1267,14 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getUnreconciledTransactions(arg0, arg1);
-                return from_candid_vec_n37(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n40(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getUnreconciledTransactions(arg0, arg1);
-            return from_candid_vec_n37(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n40(this._uploadFile, this._downloadFile, result);
         }
     }
     async initializePredefinedLedgerGroups(): Promise<void> {
@@ -1062,6 +1303,20 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.reconcileTransaction(arg0, to_candid_opt_n1(this._uploadFile, this._downloadFile, arg1), arg2);
             return from_candid_BankTransaction_n5(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async recordDepreciation(arg0: bigint, arg1: number, arg2: Time, arg3: string): Promise<DepreciationEntry> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.recordDepreciation(arg0, arg1, arg2, arg3);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.recordDepreciation(arg0, arg1, arg2, arg3);
+            return result;
         }
     }
     async saveSalaryStructure(arg0: bigint, arg1: bigint, arg2: number, arg3: number, arg4: number, arg5: number, arg6: number, arg7: number, arg8: number, arg9: number, arg10: number, arg11: number, arg12: number): Promise<SalaryStructure> {
@@ -1134,6 +1389,34 @@ export class Backend implements backendInterface {
             return from_candid_ChequeEntry_n8(this._uploadFile, this._downloadFile, result);
         }
     }
+    async updateCostCentre(arg0: bigint, arg1: string, arg2: bigint | null, arg3: string): Promise<CostCentre> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateCostCentre(arg0, arg1, to_candid_opt_n1(this._uploadFile, this._downloadFile, arg2), arg3);
+                return from_candid_CostCentre_n10(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateCostCentre(arg0, arg1, to_candid_opt_n1(this._uploadFile, this._downloadFile, arg2), arg3);
+            return from_candid_CostCentre_n10(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async updateCurrency(arg0: bigint, arg1: string, arg2: string, arg3: string, arg4: number, arg5: boolean): Promise<Currency> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateCurrency(arg0, arg1, arg2, arg3, arg4, arg5);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateCurrency(arg0, arg1, arg2, arg3, arg4, arg5);
+            return result;
+        }
+    }
     async updateEmployee(arg0: bigint, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: string, arg7: string, arg8: string, arg9: boolean, arg10: boolean, arg11: boolean): Promise<Employee> {
         if (this.processError) {
             try {
@@ -1145,6 +1428,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.updateEmployee(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11);
+            return result;
+        }
+    }
+    async updateFixedAsset(arg0: bigint, arg1: string, arg2: string, arg3: Time, arg4: number, arg5: number, arg6: bigint, arg7: string, arg8: number, arg9: boolean): Promise<FixedAsset> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateFixedAsset(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateFixedAsset(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);
             return result;
         }
     }
@@ -1190,6 +1487,88 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+
+    // RBAC methods - Phase 8 fix
+    async verifyUser(username: string, passwordHash: string): Promise<import("./types/rbac").AppUser | null> {
+        try {
+            const result = await (this.actor as any).verifyUser(username, passwordHash);
+            if (!result || result.length === 0) return null;
+            const u = result[0];
+            return { id: u.id, username: u.username, role: u.role, companyId: u.companyId && u.companyId.length > 0 ? u.companyId[0] : null, isActive: u.isActive };
+        } catch(e) {
+            if (this.processError) this.processError(e);
+            throw e;
+        }
+    }
+    async createUser(username: string, passwordHash: string, role: string, companyId: bigint | null): Promise<import("./types/rbac").AppUser> {
+        try {
+            const result = await (this.actor as any).createUser(username, passwordHash, role, companyId !== null ? [companyId] : []);
+            return { id: result.id, username: result.username, role: result.role, companyId: result.companyId && result.companyId.length > 0 ? result.companyId[0] : null, isActive: result.isActive };
+        } catch(e) {
+            if (this.processError) this.processError(e);
+            throw e;
+        }
+    }
+    async getAllUsers(): Promise<Array<import("./types/rbac").AppUser>> {
+        try {
+            const results = await (this.actor as any).getAllUsers();
+            return results.map((u: any) => ({ id: u.id, username: u.username, role: u.role, companyId: u.companyId && u.companyId.length > 0 ? u.companyId[0] : null, isActive: u.isActive }));
+        } catch(e) {
+            if (this.processError) this.processError(e);
+            throw e;
+        }
+    }
+    async updateUser(id: bigint, username: string, role: string, companyId: bigint | null, isActive: boolean): Promise<import("./types/rbac").AppUser> {
+        try {
+            const result = await (this.actor as any).updateUser(id, username, role, companyId !== null ? [companyId] : [], isActive);
+            return { id: result.id, username: result.username, role: result.role, companyId: result.companyId && result.companyId.length > 0 ? result.companyId[0] : null, isActive: result.isActive };
+        } catch(e) {
+            if (this.processError) this.processError(e);
+            throw e;
+        }
+    }
+    async deleteUser(id: bigint): Promise<boolean> {
+        try {
+            return await (this.actor as any).deleteUser(id);
+        } catch(e) {
+            if (this.processError) this.processError(e);
+            throw e;
+        }
+    }
+    async changePassword(id: bigint, newPasswordHash: string): Promise<boolean> {
+        try {
+            return await (this.actor as any).changePassword(id, newPasswordHash);
+        } catch(e) {
+            if (this.processError) this.processError(e);
+            throw e;
+        }
+    }
+    // Phase 9: Data Management
+    async exportAllData(): Promise<string> {
+        try {
+            return await (this.actor as any).exportAllData();
+        } catch(e) {
+            if (this.processError) this.processError(e);
+            throw e;
+        }
+    }
+    async validateAllData(): Promise<string[]> {
+        try {
+            return await (this.actor as any).validateAllData();
+        } catch(e) {
+            if (this.processError) this.processError(e);
+            throw e;
+        }
+    }
+    async getDataSummary(): Promise<{companies: bigint; ledgers: bigint; vouchers: bigint; gstVouchers: bigint; stockItems: bigint; employees: bigint; bankAccounts: bigint}> {
+        try {
+            return await (this.actor as any).getDataSummary();
+        } catch(e) {
+            if (this.processError) this.processError(e);
+            throw e;
+        }
+    }
+
 }
 function from_candid_BankTransaction_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _BankTransaction): BankTransaction {
     return from_candid_record_n6(_uploadFile, _downloadFile, value);
@@ -1197,46 +1576,70 @@ function from_candid_BankTransaction_n5(_uploadFile: (file: ExternalBlob) => Pro
 function from_candid_ChequeEntry_n8(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _ChequeEntry): ChequeEntry {
     return from_candid_record_n9(_uploadFile, _downloadFile, value);
 }
-function from_candid_GSTVoucherEntry_n17(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _GSTVoucherEntry): GSTVoucherEntry {
-    return from_candid_record_n18(_uploadFile, _downloadFile, value);
+function from_candid_CostCentre_n10(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _CostCentre): CostCentre {
+    return from_candid_record_n11(_uploadFile, _downloadFile, value);
 }
-function from_candid_GSTVoucher_n14(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _GSTVoucher): GSTVoucher {
-    return from_candid_record_n15(_uploadFile, _downloadFile, value);
+function from_candid_GSTVoucherEntry_n19(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _GSTVoucherEntry): GSTVoucherEntry {
+    return from_candid_record_n20(_uploadFile, _downloadFile, value);
+}
+function from_candid_GSTVoucher_n16(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _GSTVoucher): GSTVoucher {
+    return from_candid_record_n17(_uploadFile, _downloadFile, value);
 }
 function from_candid_LedgerGroup_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _LedgerGroup): LedgerGroup {
     return from_candid_record_n3(_uploadFile, _downloadFile, value);
 }
-function from_candid_StockGroup_n21(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _StockGroup): StockGroup {
-    return from_candid_record_n22(_uploadFile, _downloadFile, value);
+function from_candid_StockGroup_n23(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _StockGroup): StockGroup {
+    return from_candid_record_n24(_uploadFile, _downloadFile, value);
 }
-function from_candid_StockVoucherEntry_n30(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _StockVoucherEntry): StockVoucherEntry {
-    return from_candid_record_n31(_uploadFile, _downloadFile, value);
+function from_candid_StockVoucherEntry_n32(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _StockVoucherEntry): StockVoucherEntry {
+    return from_candid_record_n33(_uploadFile, _downloadFile, value);
 }
-function from_candid_StockVoucher_n27(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _StockVoucher): StockVoucher {
-    return from_candid_record_n28(_uploadFile, _downloadFile, value);
+function from_candid_StockVoucher_n29(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _StockVoucher): StockVoucher {
+    return from_candid_record_n30(_uploadFile, _downloadFile, value);
 }
-function from_candid_opt_n19(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [number]): number | null {
+function from_candid_opt_n21(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [number]): number | null {
     return value.length === 0 ? null : value[0];
 }
-function from_candid_opt_n20(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [string]): string | null {
-    return value.length === 0 ? null : value[0];
-}
-function from_candid_opt_n38(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_GSTSettings]): GSTSettings | null {
-    return value.length === 0 ? null : value[0];
-}
-function from_candid_opt_n39(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_PayrollVoucher]): PayrollVoucher | null {
+function from_candid_opt_n22(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [string]): string | null {
     return value.length === 0 ? null : value[0];
 }
 function from_candid_opt_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [bigint]): bigint | null {
     return value.length === 0 ? null : value[0];
 }
-function from_candid_opt_n40(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_SalaryStructure]): SalaryStructure | null {
+function from_candid_opt_n41(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_GSTSettings]): GSTSettings | null {
+    return value.length === 0 ? null : value[0];
+}
+function from_candid_opt_n42(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_PayrollVoucher]): PayrollVoucher | null {
+    return value.length === 0 ? null : value[0];
+}
+function from_candid_opt_n43(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_SalaryStructure]): SalaryStructure | null {
     return value.length === 0 ? null : value[0];
 }
 function from_candid_opt_n7(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_Time]): Time | null {
     return value.length === 0 ? null : value[0];
 }
-function from_candid_record_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function from_candid_record_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    id: bigint;
+    name: string;
+    description: string;
+    parentCentreId: [] | [bigint];
+    companyId: bigint;
+}): {
+    id: bigint;
+    name: string;
+    description: string;
+    parentCentreId?: bigint;
+    companyId: bigint;
+} {
+    return {
+        id: value.id,
+        name: value.name,
+        description: value.description,
+        parentCentreId: record_opt_to_undefined(from_candid_opt_n4(_uploadFile, _downloadFile, value.parentCentreId)),
+        companyId: value.companyId
+    };
+}
+function from_candid_record_n15(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     voucher: _GSTVoucher;
     voucherId: bigint;
 }): {
@@ -1244,11 +1647,11 @@ function from_candid_record_n13(_uploadFile: (file: ExternalBlob) => Promise<Uin
     voucherId: bigint;
 } {
     return {
-        voucher: from_candid_GSTVoucher_n14(_uploadFile, _downloadFile, value.voucher),
+        voucher: from_candid_GSTVoucher_n16(_uploadFile, _downloadFile, value.voucher),
         voucherId: value.voucherId
     };
 }
-function from_candid_record_n15(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function from_candid_record_n17(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     id: bigint;
     date: _Time;
     isInterState: boolean;
@@ -1278,7 +1681,7 @@ function from_candid_record_n15(_uploadFile: (file: ExternalBlob) => Promise<Uin
         date: value.date,
         isInterState: value.isInterState,
         voucherType: value.voucherType,
-        entries: from_candid_vec_n16(_uploadFile, _downloadFile, value.entries),
+        entries: from_candid_vec_n18(_uploadFile, _downloadFile, value.entries),
         voucherNumber: value.voucherNumber,
         narration: value.narration,
         partyName: value.partyName,
@@ -1287,7 +1690,7 @@ function from_candid_record_n15(_uploadFile: (file: ExternalBlob) => Promise<Uin
         companyId: value.companyId
     };
 }
-function from_candid_record_n18(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function from_candid_record_n20(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     ledgerId: bigint;
     taxableAmount: [] | [number];
     entryType: string;
@@ -1316,20 +1719,20 @@ function from_candid_record_n18(_uploadFile: (file: ExternalBlob) => Promise<Uin
 } {
     return {
         ledgerId: value.ledgerId,
-        taxableAmount: record_opt_to_undefined(from_candid_opt_n19(_uploadFile, _downloadFile, value.taxableAmount)),
+        taxableAmount: record_opt_to_undefined(from_candid_opt_n21(_uploadFile, _downloadFile, value.taxableAmount)),
         entryType: value.entryType,
-        igstRate: record_opt_to_undefined(from_candid_opt_n19(_uploadFile, _downloadFile, value.igstRate)),
-        igstAmount: record_opt_to_undefined(from_candid_opt_n19(_uploadFile, _downloadFile, value.igstAmount)),
-        hsnCode: record_opt_to_undefined(from_candid_opt_n20(_uploadFile, _downloadFile, value.hsnCode)),
-        sgstRate: record_opt_to_undefined(from_candid_opt_n19(_uploadFile, _downloadFile, value.sgstRate)),
-        cgstAmount: record_opt_to_undefined(from_candid_opt_n19(_uploadFile, _downloadFile, value.cgstAmount)),
-        sgstAmount: record_opt_to_undefined(from_candid_opt_n19(_uploadFile, _downloadFile, value.sgstAmount)),
+        igstRate: record_opt_to_undefined(from_candid_opt_n21(_uploadFile, _downloadFile, value.igstRate)),
+        igstAmount: record_opt_to_undefined(from_candid_opt_n21(_uploadFile, _downloadFile, value.igstAmount)),
+        hsnCode: record_opt_to_undefined(from_candid_opt_n22(_uploadFile, _downloadFile, value.hsnCode)),
+        sgstRate: record_opt_to_undefined(from_candid_opt_n21(_uploadFile, _downloadFile, value.sgstRate)),
+        cgstAmount: record_opt_to_undefined(from_candid_opt_n21(_uploadFile, _downloadFile, value.cgstAmount)),
+        sgstAmount: record_opt_to_undefined(from_candid_opt_n21(_uploadFile, _downloadFile, value.sgstAmount)),
         amount: value.amount,
-        cgstRate: record_opt_to_undefined(from_candid_opt_n19(_uploadFile, _downloadFile, value.cgstRate)),
-        cessAmount: record_opt_to_undefined(from_candid_opt_n19(_uploadFile, _downloadFile, value.cessAmount))
+        cgstRate: record_opt_to_undefined(from_candid_opt_n21(_uploadFile, _downloadFile, value.cgstRate)),
+        cessAmount: record_opt_to_undefined(from_candid_opt_n21(_uploadFile, _downloadFile, value.cessAmount))
     };
 }
-function from_candid_record_n22(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function from_candid_record_n24(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     id: bigint;
     name: string;
     unit: string;
@@ -1347,7 +1750,7 @@ function from_candid_record_n22(_uploadFile: (file: ExternalBlob) => Promise<Uin
         parentGroupId: record_opt_to_undefined(from_candid_opt_n4(_uploadFile, _downloadFile, value.parentGroupId))
     };
 }
-function from_candid_record_n26(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function from_candid_record_n28(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     voucher: _StockVoucher;
     voucherId: bigint;
 }): {
@@ -1355,35 +1758,8 @@ function from_candid_record_n26(_uploadFile: (file: ExternalBlob) => Promise<Uin
     voucherId: bigint;
 } {
     return {
-        voucher: from_candid_StockVoucher_n27(_uploadFile, _downloadFile, value.voucher),
+        voucher: from_candid_StockVoucher_n29(_uploadFile, _downloadFile, value.voucher),
         voucherId: value.voucherId
-    };
-}
-function from_candid_record_n28(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
-    id: bigint;
-    date: _Time;
-    voucherType: string;
-    entries: Array<_StockVoucherEntry>;
-    voucherNumber: bigint;
-    narration: string;
-    companyId: bigint;
-}): {
-    id: bigint;
-    date: Time;
-    voucherType: string;
-    entries: Array<StockVoucherEntry>;
-    voucherNumber: bigint;
-    narration: string;
-    companyId: bigint;
-} {
-    return {
-        id: value.id,
-        date: value.date,
-        voucherType: value.voucherType,
-        entries: from_candid_vec_n29(_uploadFile, _downloadFile, value.entries),
-        voucherNumber: value.voucherNumber,
-        narration: value.narration,
-        companyId: value.companyId
     };
 }
 function from_candid_record_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
@@ -1407,7 +1783,34 @@ function from_candid_record_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint
         name: value.name
     };
 }
-function from_candid_record_n31(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function from_candid_record_n30(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    id: bigint;
+    date: _Time;
+    voucherType: string;
+    entries: Array<_StockVoucherEntry>;
+    voucherNumber: bigint;
+    narration: string;
+    companyId: bigint;
+}): {
+    id: bigint;
+    date: Time;
+    voucherType: string;
+    entries: Array<StockVoucherEntry>;
+    voucherNumber: bigint;
+    narration: string;
+    companyId: bigint;
+} {
+    return {
+        id: value.id,
+        date: value.date,
+        voucherType: value.voucherType,
+        entries: from_candid_vec_n31(_uploadFile, _downloadFile, value.entries),
+        voucherNumber: value.voucherNumber,
+        narration: value.narration,
+        companyId: value.companyId
+    };
+}
+function from_candid_record_n33(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     qty: number;
     warehouseTo: [] | [string];
     stockItemId: bigint;
@@ -1424,10 +1827,10 @@ function from_candid_record_n31(_uploadFile: (file: ExternalBlob) => Promise<Uin
 } {
     return {
         qty: value.qty,
-        warehouseTo: record_opt_to_undefined(from_candid_opt_n20(_uploadFile, _downloadFile, value.warehouseTo)),
+        warehouseTo: record_opt_to_undefined(from_candid_opt_n22(_uploadFile, _downloadFile, value.warehouseTo)),
         stockItemId: value.stockItemId,
         rate: value.rate,
-        warehouseFrom: record_opt_to_undefined(from_candid_opt_n20(_uploadFile, _downloadFile, value.warehouseFrom)),
+        warehouseFrom: record_opt_to_undefined(from_candid_opt_n22(_uploadFile, _downloadFile, value.warehouseFrom)),
         amount: value.amount
     };
 }
@@ -1506,40 +1909,43 @@ function from_candid_record_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint
         companyId: value.companyId
     };
 }
-function from_candid_vec_n16(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_GSTVoucherEntry>): Array<GSTVoucherEntry> {
-    return value.map((x)=>from_candid_GSTVoucherEntry_n17(_uploadFile, _downloadFile, x));
+function from_candid_vec_n18(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_GSTVoucherEntry>): Array<GSTVoucherEntry> {
+    return value.map((x)=>from_candid_GSTVoucherEntry_n19(_uploadFile, _downloadFile, x));
 }
-function from_candid_vec_n29(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_StockVoucherEntry>): Array<StockVoucherEntry> {
-    return value.map((x)=>from_candid_StockVoucherEntry_n30(_uploadFile, _downloadFile, x));
+function from_candid_vec_n31(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_StockVoucherEntry>): Array<StockVoucherEntry> {
+    return value.map((x)=>from_candid_StockVoucherEntry_n32(_uploadFile, _downloadFile, x));
 }
-function from_candid_vec_n32(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_ChequeEntry>): Array<ChequeEntry> {
+function from_candid_vec_n34(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_ChequeEntry>): Array<ChequeEntry> {
     return value.map((x)=>from_candid_ChequeEntry_n8(_uploadFile, _downloadFile, x));
 }
-function from_candid_vec_n33(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_GSTVoucher>): Array<GSTVoucher> {
-    return value.map((x)=>from_candid_GSTVoucher_n14(_uploadFile, _downloadFile, x));
+function from_candid_vec_n35(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_CostCentre>): Array<CostCentre> {
+    return value.map((x)=>from_candid_CostCentre_n10(_uploadFile, _downloadFile, x));
 }
-function from_candid_vec_n34(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_LedgerGroup>): Array<LedgerGroup> {
+function from_candid_vec_n36(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_GSTVoucher>): Array<GSTVoucher> {
+    return value.map((x)=>from_candid_GSTVoucher_n16(_uploadFile, _downloadFile, x));
+}
+function from_candid_vec_n37(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_LedgerGroup>): Array<LedgerGroup> {
     return value.map((x)=>from_candid_LedgerGroup_n2(_uploadFile, _downloadFile, x));
 }
-function from_candid_vec_n35(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_StockGroup>): Array<StockGroup> {
-    return value.map((x)=>from_candid_StockGroup_n21(_uploadFile, _downloadFile, x));
+function from_candid_vec_n38(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_StockGroup>): Array<StockGroup> {
+    return value.map((x)=>from_candid_StockGroup_n23(_uploadFile, _downloadFile, x));
 }
-function from_candid_vec_n36(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_StockVoucher>): Array<StockVoucher> {
-    return value.map((x)=>from_candid_StockVoucher_n27(_uploadFile, _downloadFile, x));
+function from_candid_vec_n39(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_StockVoucher>): Array<StockVoucher> {
+    return value.map((x)=>from_candid_StockVoucher_n29(_uploadFile, _downloadFile, x));
 }
-function from_candid_vec_n37(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_BankTransaction>): Array<BankTransaction> {
+function from_candid_vec_n40(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_BankTransaction>): Array<BankTransaction> {
     return value.map((x)=>from_candid_BankTransaction_n5(_uploadFile, _downloadFile, x));
 }
-function to_candid_GSTVoucherEntry_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: GSTVoucherEntry): _GSTVoucherEntry {
-    return to_candid_record_n12(_uploadFile, _downloadFile, value);
+function to_candid_GSTVoucherEntry_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: GSTVoucherEntry): _GSTVoucherEntry {
+    return to_candid_record_n14(_uploadFile, _downloadFile, value);
 }
-function to_candid_StockVoucherEntry_n24(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: StockVoucherEntry): _StockVoucherEntry {
-    return to_candid_record_n25(_uploadFile, _downloadFile, value);
+function to_candid_StockVoucherEntry_n26(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: StockVoucherEntry): _StockVoucherEntry {
+    return to_candid_record_n27(_uploadFile, _downloadFile, value);
 }
 function to_candid_opt_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: bigint | null): [] | [bigint] {
     return value === null ? candid_none() : candid_some(value);
 }
-function to_candid_record_n12(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function to_candid_record_n14(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     ledgerId: bigint;
     taxableAmount?: number;
     entryType: string;
@@ -1581,7 +1987,7 @@ function to_candid_record_n12(_uploadFile: (file: ExternalBlob) => Promise<Uint8
         cessAmount: value.cessAmount ? candid_some(value.cessAmount) : candid_none()
     };
 }
-function to_candid_record_n25(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function to_candid_record_n27(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     qty: number;
     warehouseTo?: string;
     stockItemId: bigint;
@@ -1605,11 +2011,11 @@ function to_candid_record_n25(_uploadFile: (file: ExternalBlob) => Promise<Uint8
         amount: value.amount
     };
 }
-function to_candid_vec_n10(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<GSTVoucherEntry>): Array<_GSTVoucherEntry> {
-    return value.map((x)=>to_candid_GSTVoucherEntry_n11(_uploadFile, _downloadFile, x));
+function to_candid_vec_n12(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<GSTVoucherEntry>): Array<_GSTVoucherEntry> {
+    return value.map((x)=>to_candid_GSTVoucherEntry_n13(_uploadFile, _downloadFile, x));
 }
-function to_candid_vec_n23(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<StockVoucherEntry>): Array<_StockVoucherEntry> {
-    return value.map((x)=>to_candid_StockVoucherEntry_n24(_uploadFile, _downloadFile, x));
+function to_candid_vec_n25(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<StockVoucherEntry>): Array<_StockVoucherEntry> {
+    return value.map((x)=>to_candid_StockVoucherEntry_n26(_uploadFile, _downloadFile, x));
 }
 export interface CreateActorOptions {
     agent?: Agent;

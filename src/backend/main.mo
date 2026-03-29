@@ -11,7 +11,7 @@ import Float "mo:core/Float";
 
 
 
-actor {
+persistent actor {
   type Company = {
     id : Nat;
     name : Text;
@@ -421,6 +421,115 @@ actor {
     remarks : Text;
   };
 
+  type DepreciationEntry = {
+    id : Nat;
+    assetId : Nat;
+    date : Time.Time;
+    amount : Float;
+    narration : Text;
+  };
+
+  type CostCentre = {
+    id : Nat;
+    companyId : Nat;
+    name : Text;
+    parentCentreId : ?Nat;
+    description : Text;
+  };
+
+  type CostCentreSummaryEntry = {
+    centreId : Nat;
+    centreName : Text;
+    totalAllocated : Float;
+  };
+
+  type FixedAsset = {
+    id : Nat;
+    companyId : Nat;
+    name : Text;
+    category : Text;
+    purchaseDate : Time.Time;
+    cost : Float;
+    salvageValue : Float;
+    usefulLifeYears : Nat;
+    depreciationMethod : Text;
+    accumulatedDepreciation : Float;
+    isDisposed : Bool;
+  };
+
+  module FixedAsset {
+    public func compare(asset1 : FixedAsset, asset2 : FixedAsset) : Order.Order {
+      Nat.compare(asset1.id, asset2.id);
+    };
+  };
+
+  type CostAllocation = {
+    id : Nat;
+    companyId : Nat;
+    costCentreId : Nat;
+    voucherId : Nat;
+    ledgerId : Nat;
+    amount : Float;
+    date : Time.Time;
+    narration : Text;
+  };
+
+  type Currency = {
+    id : Nat;
+    code : Text;
+    symbol : Text;
+    name : Text;
+    exchangeRate : Float;
+    isBase : Bool;
+  };
+
+  module Currency {
+    public func compare(currency1 : Currency, currency2 : Currency) : Order.Order {
+      Nat.compare(currency1.id, currency2.id);
+    };
+  };
+
+  type ExchangeRateEntry = {
+    id : Nat;
+    currencyId : Nat;
+    date : Time.Time;
+    rate : Float;
+    narration : Text;
+  };
+
+  module ExchangeRateEntry {
+    public func compare(entry1 : ExchangeRateEntry, entry2 : ExchangeRateEntry) : Order.Order {
+      Nat.compare(entry1.id, entry2.id);
+    };
+  };
+
+  type Extension = {
+    fixedAssets : Map.Map<Nat, FixedAsset>;
+    costCentres : Map.Map<Nat, CostCentre>;
+    costAllocations : Map.Map<Nat, CostAllocation>;
+    depreciationEntries : Map.Map<Nat, DepreciationEntry>;
+    currencies : Map.Map<Nat, Currency>;
+    exchangeRates : Map.Map<Nat, ExchangeRateEntry>;
+  };
+
+
+  // PHASE 8: Role-Based Access Control
+  type AppUser = {
+    id : Nat;
+    username : Text;
+    passwordHash : Text;
+    role : Text;
+    companyId : ?Nat;
+    isActive : Bool;
+    createdAt : Time.Time;
+  };
+
+  module AppUser {
+    public func compare(a : AppUser, b : AppUser) : Order.Order {
+      Nat.compare(a.id, b.id);
+    };
+  };
+
   var nextCompanyId = 1;
   var nextLedgerGroupId = 1;
   var nextLedgerId = 1;
@@ -435,6 +544,12 @@ actor {
   var nextBankAccountId = 1;
   var nextChequeEntryId = 1;
   var nextBankTransactionId = 1;
+  var nextAssetId = 1;
+  var nextCostCentreId = 1;
+  var nextCostAllocationId = 1;
+  var nextDepreciationEntryId = 1;
+  var nextCurrencyId = 1;
+  var nextExchangeRateId = 1;
 
   let companies = Map.empty<Nat, Company>();
   let ledgerGroups = Map.empty<Nat, LedgerGroup>();
@@ -452,6 +567,7 @@ actor {
   let bankAccounts = Map.empty<Nat, BankAccount>();
   let chequeEntries = Map.empty<Nat, ChequeEntry>();
   let bankTransactions = Map.empty<Nat, BankTransaction>();
+  var extension : ?Extension = null;
 
   // PHASE 1 NON-GST FUNCTIONS
   public shared ({ caller }) func createCompany(name : Text, financialYearStart : Text, financialYearEnd : Text, currency : Text, gstin : Text, address : Text) : async Company {
@@ -1279,4 +1395,519 @@ actor {
     let debits = bankTransactions.values().filter(func(t) { t.companyId == companyId and t.bankAccountId == bankAccountId and t.transactionType == "Debit" }).map(func(t) { t.amount }).foldLeft(0.0, func(acc, val) { acc + val });
     account.openingBalance + credits - debits;
   };
+
+  // PHASE 7: EXTENSION MODULES (NEW)
+  public shared ({ caller }) func createFixedAsset(companyId : Nat, name : Text, category : Text, purchaseDate : Time.Time, cost : Float, salvageValue : Float, usefulLifeYears : Nat, depreciationMethod : Text) : async FixedAsset {
+    let asset : FixedAsset = {
+      id = nextAssetId;
+      companyId;
+      name;
+      category;
+      purchaseDate;
+      cost;
+      salvageValue;
+      usefulLifeYears;
+      depreciationMethod;
+      accumulatedDepreciation = 0.0;
+      isDisposed = false;
+    };
+    nextAssetId += 1;
+    switch (extension) {
+      case (?ext) {
+        ext.fixedAssets.add(asset.id, asset);
+        asset;
+      };
+      case (null) {
+        let newExt : Extension = {
+          fixedAssets = Map.empty<Nat, FixedAsset>();
+          costCentres = Map.empty<Nat, CostCentre>();
+          costAllocations = Map.empty<Nat, CostAllocation>();
+          depreciationEntries = Map.empty<Nat, DepreciationEntry>();
+          currencies = Map.empty<Nat, Currency>();
+          exchangeRates = Map.empty<Nat, ExchangeRateEntry>();
+        };
+        newExt.fixedAssets.add(asset.id, asset);
+        extension := ?newExt;
+        asset;
+      };
+    };
+  };
+
+  public shared ({ caller }) func updateFixedAsset(id : Nat, name : Text, category : Text, purchaseDate : Time.Time, cost : Float, salvageValue : Float, usefulLifeYears : Nat, depreciationMethod : Text, accumulatedDepreciation : Float, isDisposed : Bool) : async FixedAsset {
+    switch (extension) {
+      case (?ext) {
+        switch (ext.fixedAssets.get(id)) {
+          case (?asset) {
+            let updatedAsset : FixedAsset = {
+              asset with
+              name;
+              category;
+              purchaseDate;
+              cost;
+              salvageValue;
+              usefulLifeYears;
+              depreciationMethod;
+              accumulatedDepreciation;
+              isDisposed;
+            };
+            ext.fixedAssets.add(id, updatedAsset);
+            updatedAsset;
+          };
+          case (null) { Runtime.trap("Fixed asset not found") };
+        };
+      };
+      case (null) { Runtime.trap("Fixed asset not found") };
+    };
+  };
+
+  public query ({ caller }) func getAllFixedAssets(companyId : Nat) : async [FixedAsset] {
+    switch (extension) {
+      case (?ext) { ext.fixedAssets.values().toArray().filter(func(a) { a.companyId == companyId }).sort() };
+      case (null) { [] };
+    };
+  };
+
+  public shared ({ caller }) func recordDepreciation(assetId : Nat, amount : Float, date : Time.Time, narration : Text) : async DepreciationEntry {
+    switch (extension) {
+      case (?ext) {
+        switch (ext.fixedAssets.get(assetId)) {
+          case (?asset) {
+            let entry : DepreciationEntry = {
+              id = nextDepreciationEntryId;
+              assetId;
+              date;
+              amount;
+              narration;
+            };
+            nextDepreciationEntryId += 1;
+            ext.depreciationEntries.add(entry.id, entry);
+            let updatedAsset = { asset with accumulatedDepreciation = asset.accumulatedDepreciation + amount };
+            ext.fixedAssets.add(assetId, updatedAsset);
+            entry;
+          };
+          case (null) { Runtime.trap("Fixed asset not found") };
+        };
+      };
+      case (null) { Runtime.trap("Fixed asset not found") };
+    };
+  };
+
+  public query ({ caller }) func getDepreciationHistory(assetId : Nat) : async [DepreciationEntry] {
+    switch (extension) {
+      case (?ext) { ext.depreciationEntries.values().toArray().filter(func(e) { e.assetId == assetId }) };
+      case (null) { [] };
+    };
+  };
+
+  public shared ({ caller }) func createCostCentre(companyId : Nat, name : Text, parentCentreId : ?Nat, description : Text) : async CostCentre {
+    let centre : CostCentre = {
+      id = nextCostCentreId;
+      companyId;
+      name;
+      parentCentreId;
+      description;
+    };
+    switch (extension) {
+      case (?ext) {
+        ext.costCentres.add(centre.id, centre);
+        centre;
+      };
+      case (null) {
+        let newExt : Extension = {
+          fixedAssets = Map.empty<Nat, FixedAsset>();
+          costCentres = Map.empty<Nat, CostCentre>();
+          costAllocations = Map.empty<Nat, CostAllocation>();
+          depreciationEntries = Map.empty<Nat, DepreciationEntry>();
+          currencies = Map.empty<Nat, Currency>();
+          exchangeRates = Map.empty<Nat, ExchangeRateEntry>();
+        };
+        newExt.costCentres.add(centre.id, centre);
+        extension := ?newExt;
+        centre;
+      };
+    };
+  };
+
+  public shared ({ caller }) func updateCostCentre(id : Nat, name : Text, parentCentreId : ?Nat, description : Text) : async CostCentre {
+    switch (extension) {
+      case (?ext) {
+        switch (ext.costCentres.get(id)) {
+          case (?centre) {
+            let updatedCentre = {
+              centre with
+              name;
+              parentCentreId;
+              description;
+            };
+            ext.costCentres.add(id, updatedCentre);
+            updatedCentre;
+          };
+          case (null) { Runtime.trap("Cost centre not found") };
+        };
+      };
+      case (null) { Runtime.trap("Cost centre not found") };
+    };
+  };
+
+  public query ({ caller }) func getAllCostCentres(companyId : Nat) : async [CostCentre] {
+    switch (extension) {
+      case (?ext) { ext.costCentres.values().toArray().filter(func(c) { c.companyId == companyId }) };
+      case (null) { [] };
+    };
+  };
+
+  public shared ({ caller }) func createCostAllocation(companyId : Nat, costCentreId : Nat, voucherId : Nat, ledgerId : Nat, amount : Float, date : Time.Time, narration : Text) : async CostAllocation {
+    let allocation : CostAllocation = {
+      id = nextCostAllocationId;
+      companyId;
+      costCentreId;
+      voucherId;
+      ledgerId;
+      amount;
+      date;
+      narration;
+    };
+    switch (extension) {
+      case (?ext) {
+        ext.costAllocations.add(allocation.id, allocation);
+        allocation;
+      };
+      case (null) {
+        let newExt : Extension = {
+          fixedAssets = Map.empty<Nat, FixedAsset>();
+          costCentres = Map.empty<Nat, CostCentre>();
+          costAllocations = Map.empty<Nat, CostAllocation>();
+          depreciationEntries = Map.empty<Nat, DepreciationEntry>();
+          currencies = Map.empty<Nat, Currency>();
+          exchangeRates = Map.empty<Nat, ExchangeRateEntry>();
+        };
+        newExt.costAllocations.add(allocation.id, allocation);
+        extension := ?newExt;
+        allocation;
+      };
+    };
+  };
+
+  public query ({ caller }) func getCostCentreSummary(companyId : Nat) : async [CostCentreSummaryEntry] {
+    switch (extension) {
+      case (?ext) {
+        let costCentres = ext.costCentres.values().toArray();
+        let allocations = ext.costAllocations.values().toArray();
+        costCentres.map(func(centre) {
+          let total = allocations.filter(func(a) { a.costCentreId == centre.id }).map(func(a) { a.amount }).foldLeft(0.0, func(acc, v) { acc + v });
+          {
+            centreId = centre.id;
+            centreName = centre.name;
+            totalAllocated = total;
+          };
+        });
+      };
+      case (null) { [] };
+    };
+  };
+
+  // MULTI-CURRENCY MODULE
+  public shared ({ caller }) func createCurrency(code : Text, symbol : Text, name : Text, exchangeRate : Float, isBase : Bool) : async Currency {
+    let currency : Currency = {
+      id = nextCurrencyId;
+      code;
+      symbol;
+      name;
+      exchangeRate;
+      isBase;
+    };
+    switch (extension) {
+      case (?ext) {
+        ext.currencies.add(currency.id, currency);
+        nextCurrencyId += 1;
+        currency;
+      };
+      case (null) {
+        let newExt : Extension = {
+          fixedAssets = Map.empty<Nat, FixedAsset>();
+          costCentres = Map.empty<Nat, CostCentre>();
+          costAllocations = Map.empty<Nat, CostAllocation>();
+          depreciationEntries = Map.empty<Nat, DepreciationEntry>();
+          currencies = Map.empty<Nat, Currency>();
+          exchangeRates = Map.empty<Nat, ExchangeRateEntry>();
+        };
+        newExt.currencies.add(currency.id, currency);
+        extension := ?newExt;
+        nextCurrencyId += 1;
+        currency;
+      };
+    };
+  };
+
+  public shared ({ caller }) func updateCurrency(id : Nat, code : Text, symbol : Text, name : Text, exchangeRate : Float, isBase : Bool) : async Currency {
+    switch (extension) {
+      case (?ext) {
+        switch (ext.currencies.get(id)) {
+          case (?currency) {
+            let updatedCurrency : Currency = {
+              currency with
+              code;
+              symbol;
+              name;
+              exchangeRate;
+              isBase;
+            };
+            ext.currencies.add(id, updatedCurrency);
+            updatedCurrency;
+          };
+          case (null) { Runtime.trap("Currency not found") };
+        };
+      };
+      case (null) { Runtime.trap("Currency not found") };
+    };
+  };
+
+  public query ({ caller }) func getAllCurrencies() : async [Currency] {
+    switch (extension) {
+      case (?ext) { ext.currencies.values().toArray().sort() };
+      case (null) { [] };
+    };
+  };
+
+  public shared ({ caller }) func addExchangeRate(currencyId : Nat, date : Time.Time, rate : Float, narration : Text) : async ExchangeRateEntry {
+    let entry : ExchangeRateEntry = {
+      id = nextExchangeRateId;
+      currencyId;
+      date;
+      rate;
+      narration;
+    };
+    switch (extension) {
+      case (?ext) {
+        ext.exchangeRates.add(entry.id, entry);
+        nextExchangeRateId += 1;
+        entry;
+      };
+      case (null) {
+        let newExt : Extension = {
+          fixedAssets = Map.empty<Nat, FixedAsset>();
+          costCentres = Map.empty<Nat, CostCentre>();
+          costAllocations = Map.empty<Nat, CostAllocation>();
+          depreciationEntries = Map.empty<Nat, DepreciationEntry>();
+          currencies = Map.empty<Nat, Currency>();
+          exchangeRates = Map.empty<Nat, ExchangeRateEntry>();
+        };
+        newExt.exchangeRates.add(entry.id, entry);
+        extension := ?newExt;
+        nextExchangeRateId += 1;
+        entry;
+      };
+    };
+  };
+
+  public query ({ caller }) func getExchangeRates(currencyId : Nat) : async [ExchangeRateEntry] {
+    switch (extension) {
+      case (?ext) { ext.exchangeRates.values().toArray().filter(func(e) { e.currencyId == currencyId }).sort() };
+      case (null) { [] };
+    };
+  };
+
+  public query ({ caller }) func getLatestRate(currencyCode : Text) : async ?Float {
+    switch (extension) {
+      case (?ext) {
+        let matches = ext.currencies.values().toArray().filter(func(c) { c.code == currencyCode });
+        if (matches.size() > 0) { ?matches[0].exchangeRate } else { null };
+      };
+      case (null) { null };
+    };
+  };
+
+  // PHASE 8: RBAC State
+  var nextUserId = 1;
+  let appUsers = Map.empty<Nat, AppUser>();
+  var adminSeeded = false;
+
+  func ensureAdminSeeded() {
+    if (not adminSeeded) {
+      let admin : AppUser = {
+        id = nextUserId;
+        username = "admin";
+        passwordHash = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9";
+        role = "Admin";
+        companyId = null;
+        isActive = true;
+        createdAt = Time.now();
+      };
+      appUsers.add(admin.id, admin);
+      nextUserId += 1;
+      adminSeeded := true;
+    };
+  };
+
+  public shared ({ caller }) func createUser(username : Text, passwordHash : Text, role : Text, companyId : ?Nat) : async AppUser {
+    ensureAdminSeeded();
+    let existing = appUsers.values().toArray().filter(func(u) { u.username == username });
+    if (existing.size() > 0) { Runtime.trap("Username already exists") };
+    let user : AppUser = {
+      id = nextUserId;
+      username;
+      passwordHash;
+      role;
+      companyId;
+      isActive = true;
+      createdAt = Time.now();
+    };
+    appUsers.add(user.id, user);
+    nextUserId += 1;
+    user;
+  };
+
+  public shared ({ caller }) func verifyUser(username : Text, passwordHash : Text) : async ?AppUser {
+    ensureAdminSeeded();
+    let matches = appUsers.values().toArray().filter(func(u) { u.username == username and u.passwordHash == passwordHash and u.isActive });
+    if (matches.size() > 0) { ?matches[0] } else { null };
+  };
+
+  public shared ({ caller }) func getAllUsers() : async [AppUser] {
+    ensureAdminSeeded();
+    appUsers.values().toArray().sort();
+  };
+
+  public shared ({ caller }) func updateUser(id : Nat, username : Text, role : Text, companyId : ?Nat, isActive : Bool) : async AppUser {
+    switch (appUsers.get(id)) {
+      case (?user) {
+        let updated : AppUser = {
+          user with
+          username;
+          role;
+          companyId;
+          isActive;
+        };
+        appUsers.add(id, updated);
+        updated;
+      };
+      case (null) { Runtime.trap("User not found") };
+    };
+  };
+
+  public shared ({ caller }) func deleteUser(id : Nat) : async Bool {
+    switch (appUsers.get(id)) {
+      case (?user) {
+        let deactivated : AppUser = { user with isActive = false };
+        appUsers.add(id, deactivated);
+        true;
+      };
+      case (null) { false };
+    };
+  };
+
+  public shared ({ caller }) func changePassword(id : Nat, newPasswordHash : Text) : async Bool {
+    switch (appUsers.get(id)) {
+      case (?user) {
+        let updated : AppUser = { user with passwordHash = newPasswordHash };
+        appUsers.add(id, updated);
+        true;
+      };
+      case (null) { false };
+    };
+  };
+
+  // PHASE 9: DATA MANAGEMENT
+
+  // Export data summary as JSON
+  public query ({ caller }) func exportAllData() : async Text {
+    let companyCount = companies.size();
+    let ledgerCount = ledgers.size();
+    let voucherCount = vouchers.size();
+    let stockItemCount = stockItems.size();
+    let employeeCount = employees.size();
+    let bankAccountCount = bankAccounts.size();
+    let gstVoucherCount = gstVouchers.size();
+    let stockVoucherCount = stockVouchers.size();
+
+    "{\"version\":\"9.0\",\"exportedAt\":" # Time.now().toText() #
+    ",\"summary\":{\"companies\":" # companyCount.toText() #
+    ",\"ledgers\":" # ledgerCount.toText() #
+    ",\"vouchers\":" # voucherCount.toText() #
+    ",\"gstVouchers\":" # gstVoucherCount.toText() #
+    ",\"stockItems\":" # stockItemCount.toText() #
+    ",\"stockVouchers\":" # stockVoucherCount.toText() #
+    ",\"employees\":" # employeeCount.toText() #
+    ",\"bankAccounts\":" # bankAccountCount.toText() # "}}"
+  };
+
+  // Validate data integrity
+  public query ({ caller }) func validateAllData() : async [Text] {
+    let buf = Map.empty<Nat, Text>();
+    var issueCount = 0;
+
+    // Check vouchers referencing non-existent ledgers
+    for (voucher in vouchers.values()) {
+      for (entry in voucher.entries.vals()) {
+        switch (ledgers.get(entry.ledgerId)) {
+          case (null) {
+            buf.add(issueCount, "Voucher #" # voucher.voucherNumber.toText() # " references missing ledger ID " # entry.ledgerId.toText());
+            issueCount += 1;
+          };
+          case (_) {};
+        };
+      };
+    };
+
+    // Check ledgers referencing non-existent ledger groups
+    for (ledger in ledgers.values()) {
+      switch (ledgerGroups.get(ledger.groupId)) {
+        case (null) {
+          buf.add(issueCount, "Ledger \"" # ledger.name # "\" references missing group ID " # ledger.groupId.toText());
+          issueCount += 1;
+        };
+        case (_) {};
+      };
+    };
+
+    // Check stock items referencing missing stock groups
+    for (item in stockItems.values()) {
+      switch (stockGroups.get(item.stockGroupId)) {
+        case (null) {
+          buf.add(issueCount, "Stock Item \"" # item.name # "\" references missing stock group ID " # item.stockGroupId.toText());
+          issueCount += 1;
+        };
+        case (_) {};
+      };
+    };
+
+    // Check salary structures referencing missing employees
+    for (ss in salaryStructures.values()) {
+      switch (employees.get(ss.employeeId)) {
+        case (null) {
+          buf.add(issueCount, "Salary structure ID " # ss.id.toText() # " references missing employee ID " # ss.employeeId.toText());
+          issueCount += 1;
+        };
+        case (_) {};
+      };
+    };
+
+    if (issueCount == 0) {
+      ["All data validated successfully. No issues found."]
+    } else {
+      buf.values().toArray()
+    };
+  };
+
+  // Get data summary counts
+  public query ({ caller }) func getDataSummary() : async {
+    companies : Nat;
+    ledgers : Nat;
+    vouchers : Nat;
+    gstVouchers : Nat;
+    stockItems : Nat;
+    employees : Nat;
+    bankAccounts : Nat;
+  } {
+    {
+      companies = companies.size();
+      ledgers = ledgers.size();
+      vouchers = vouchers.size();
+      gstVouchers = gstVouchers.size();
+      stockItems = stockItems.size();
+      employees = employees.size();
+      bankAccounts = bankAccounts.size();
+    }
+  };
+
 };

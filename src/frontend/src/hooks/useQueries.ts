@@ -382,3 +382,295 @@ export function useGetTaxLedgerBalances(companyId: bigint | null) {
     enabled: !!actor && !isFetching && !!companyId,
   });
 }
+
+// ── Phase 7: Fixed Assets ────────────────────────────────────────────────────
+
+export function useGetAllFixedAssets(companyId: bigint | null) {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["fixedAssets", companyId?.toString()],
+    queryFn: async () => {
+      if (!actor || !companyId) return [];
+      return actor.getAllFixedAssets(companyId);
+    },
+    enabled: !!actor && !isFetching && !!companyId,
+  });
+}
+
+export function useCreateFixedAsset() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: {
+      companyId: bigint;
+      name: string;
+      category: string;
+      purchaseDate: string;
+      cost: number;
+      salvageValue: number;
+      usefulLifeYears: bigint;
+      depreciationMethod: string;
+    }) => {
+      if (!actor) throw new Error("Not connected");
+      return actor.createFixedAsset(
+        args.companyId,
+        args.name,
+        args.category,
+        BigInt(new Date(args.purchaseDate).getTime()) * 1000000n,
+        args.cost,
+        args.salvageValue,
+        args.usefulLifeYears,
+        args.depreciationMethod,
+      );
+    },
+    onSuccess: (_data, vars) =>
+      qc.invalidateQueries({
+        queryKey: ["fixedAssets", vars.companyId.toString()],
+      }),
+  });
+}
+
+export function useUpdateFixedAsset() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: {
+      id: bigint;
+      name: string;
+      category: string;
+      purchaseDate: string;
+      cost: number;
+      salvageValue: number;
+      usefulLifeYears: bigint;
+      depreciationMethod: string;
+      accumulatedDepreciation: number;
+      isDisposed: boolean;
+    }) => {
+      if (!actor) throw new Error("Not connected");
+      return actor.updateFixedAsset(
+        args.id,
+        args.name,
+        args.category,
+        BigInt(new Date(args.purchaseDate).getTime()) * 1000000n,
+        args.cost,
+        args.salvageValue,
+        args.usefulLifeYears,
+        args.depreciationMethod,
+        args.accumulatedDepreciation,
+        args.isDisposed,
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fixedAssets"] }),
+  });
+}
+
+export function useRecordDepreciation() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: {
+      assetId: bigint;
+      amount: number;
+      date: string;
+      narration: string;
+    }) => {
+      if (!actor) throw new Error("Not connected");
+      return actor.recordDepreciation(
+        args.assetId,
+        args.amount,
+        BigInt(new Date(args.date).getTime()) * 1000000n,
+        args.narration,
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fixedAssets"] });
+      qc.invalidateQueries({ queryKey: ["depreciationHistory"] });
+    },
+  });
+}
+
+export function useGetDepreciationHistory(assetId: bigint | null) {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["depreciationHistory", assetId?.toString()],
+    queryFn: async () => {
+      if (!actor || !assetId) return [];
+      return actor.getDepreciationHistory(assetId);
+    },
+    enabled: !!actor && !isFetching && !!assetId,
+  });
+}
+
+// ── Phase 7: Cost Centres ────────────────────────────────────────────────────
+
+export function useGetAllCostCentres(companyId: bigint | null) {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["costCentres", companyId?.toString()],
+    queryFn: async () => {
+      if (!actor || !companyId) return [];
+      return actor.getAllCostCentres(companyId);
+    },
+    enabled: !!actor && !isFetching && !!companyId,
+  });
+}
+
+export function useCreateCostCentre() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: {
+      companyId: bigint;
+      name: string;
+      parentCentreId?: bigint;
+      description: string;
+    }) => {
+      if (!actor) throw new Error("Not connected");
+      return actor.createCostCentre(
+        args.companyId,
+        args.name,
+        args.parentCentreId ?? null,
+        args.description,
+      );
+    },
+    onSuccess: (_data, vars) =>
+      qc.invalidateQueries({
+        queryKey: ["costCentres", vars.companyId.toString()],
+      }),
+  });
+}
+
+export function useUpdateCostCentre() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: {
+      id: bigint;
+      name: string;
+      parentCentreId?: bigint;
+      description: string;
+    }) => {
+      if (!actor) throw new Error("Not connected");
+      return actor.updateCostCentre(
+        args.id,
+        args.name,
+        args.parentCentreId ?? null,
+        args.description,
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["costCentres"] }),
+  });
+}
+
+export function useGetCostCentreSummary(companyId: bigint | null) {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["costCentreSummary", companyId?.toString()],
+    queryFn: async () => {
+      if (!actor || !companyId) return [];
+      return actor.getCostCentreSummary(companyId);
+    },
+    enabled: !!actor && !isFetching && !!companyId,
+  });
+}
+
+// ── Phase 7: Multi-Currency ──────────────────────────────────────────────────
+
+export function useGetAllCurrencies() {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["currencies"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAllCurrencies();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useCreateCurrency() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: {
+      code: string;
+      symbol: string;
+      name: string;
+      exchangeRate: number;
+      isBase: boolean;
+    }) => {
+      if (!actor) throw new Error("Not connected");
+      return actor.createCurrency(
+        args.code,
+        args.symbol,
+        args.name,
+        args.exchangeRate,
+        args.isBase,
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["currencies"] }),
+  });
+}
+
+export function useUpdateCurrency() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: {
+      id: bigint;
+      code: string;
+      symbol: string;
+      name: string;
+      exchangeRate: number;
+      isBase: boolean;
+    }) => {
+      if (!actor) throw new Error("Not connected");
+      return actor.updateCurrency(
+        args.id,
+        args.code,
+        args.symbol,
+        args.name,
+        args.exchangeRate,
+        args.isBase,
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["currencies"] }),
+  });
+}
+
+export function useGetExchangeRates(currencyId: bigint | null) {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["exchangeRates", currencyId?.toString()],
+    queryFn: async () => {
+      if (!actor || !currencyId) return [];
+      return actor.getExchangeRates(currencyId);
+    },
+    enabled: !!actor && !isFetching && !!currencyId,
+  });
+}
+
+export function useAddExchangeRate() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: {
+      currencyId: bigint;
+      date: string;
+      rate: number;
+      narration: string;
+    }) => {
+      if (!actor) throw new Error("Not connected");
+      return actor.addExchangeRate(
+        args.currencyId,
+        BigInt(new Date(args.date).getTime()) * 1000000n,
+        args.rate,
+        args.narration,
+      );
+    },
+    onSuccess: (_data, vars) =>
+      qc.invalidateQueries({
+        queryKey: ["exchangeRates", vars.currencyId.toString()],
+      }),
+  });
+}
