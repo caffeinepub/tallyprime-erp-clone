@@ -273,6 +273,154 @@ actor {
     balance : Float;
   };
 
+  // PHASE 5: Payroll types
+  type Employee = {
+    id : Nat;
+    companyId : Nat;
+    name : Text;
+    employeeCode : Text;
+    department : Text;
+    designation : Text;
+    dateOfJoining : Text;
+    pan : Text;
+    bankAccount : Text;
+    bankName : Text;
+    pfApplicable : Bool;
+    esiApplicable : Bool;
+    isActive : Bool;
+  };
+
+  module Employee {
+    public func compare(a : Employee, b : Employee) : Order.Order {
+      Nat.compare(a.id, b.id);
+    };
+  };
+
+  type SalaryStructure = {
+    id : Nat;
+    companyId : Nat;
+    employeeId : Nat;
+    basic : Float;
+    hra : Float;
+    da : Float;
+    conveyance : Float;
+    specialAllowance : Float;
+    otherAllowances : Float;
+    pf : Float;
+    esi : Float;
+    tds : Float;
+    professionalTax : Float;
+    otherDeductions : Float;
+  };
+
+  module SalaryStructure {
+    public func compare(a : SalaryStructure, b : SalaryStructure) : Order.Order {
+      Nat.compare(a.id, b.id);
+    };
+  };
+
+  type PayrollEntry = {
+    employeeId : Nat;
+    employeeName : Text;
+    department : Text;
+    designation : Text;
+    basic : Float;
+    hra : Float;
+    da : Float;
+    conveyance : Float;
+    specialAllowance : Float;
+    otherAllowances : Float;
+    grossEarnings : Float;
+    pf : Float;
+    esi : Float;
+    tds : Float;
+    professionalTax : Float;
+    otherDeductions : Float;
+    totalDeductions : Float;
+    netPayable : Float;
+  };
+
+  type PayrollVoucher = {
+    id : Nat;
+    companyId : Nat;
+    month : Nat;
+    year : Nat;
+    entries : [PayrollEntry];
+    processedAt : Time.Time;
+  };
+
+  module PayrollVoucher {
+    public func compare(a : PayrollVoucher, b : PayrollVoucher) : Order.Order {
+      Nat.compare(a.id, b.id);
+    };
+  };
+
+  // PHASE 6: Banking Module Types
+  type BankAccount = {
+    id : Nat;
+    companyId : Nat;
+    accountName : Text;
+    accountNumber : Text;
+    ifscCode : Text;
+    bankName : Text;
+    branchName : Text;
+    linkedLedgerId : Nat;
+    openingBalance : Float;
+    isActive : Bool;
+  };
+
+  module BankAccount {
+    public func compare(a : BankAccount, b : BankAccount) : Order.Order {
+      Nat.compare(a.id, b.id);
+    };
+  };
+
+  type ChequeEntry = {
+    id : Nat;
+    companyId : Nat;
+    bankAccountId : Nat;
+    chequeNumber : Text;
+    chequeDate : Time.Time;
+    amount : Float;
+    payeeName : Text;
+    chequeType : Text;
+    status : Text;
+    voucherId : ?Nat;
+    remarks : Text;
+  };
+
+  module ChequeEntry {
+    public func compare(a : ChequeEntry, b : ChequeEntry) : Order.Order {
+      Nat.compare(a.id, b.id);
+    };
+  };
+
+  type BankTransaction = {
+    id : Nat;
+    companyId : Nat;
+    bankAccountId : Nat;
+    date : Time.Time;
+    description : Text;
+    amount : Float;
+    transactionType : Text;
+    voucherId : ?Nat;
+    isReconciled : Bool;
+    reconciledDate : ?Time.Time;
+  };
+
+  module BankTransaction {
+    public func compare(a : BankTransaction, b : BankTransaction) : Order.Order {
+      Nat.compare(a.id, b.id);
+    };
+  };
+
+  type BankReconciliationEntry = {
+    bankTransactionId : Nat;
+    voucherId : ?Nat;
+    reconciledDate : Time.Time;
+    remarks : Text;
+  };
+
   var nextCompanyId = 1;
   var nextLedgerGroupId = 1;
   var nextLedgerId = 1;
@@ -281,6 +429,12 @@ actor {
   var nextStockGroupId = 1;
   var nextStockItemId = 1;
   var nextStockVoucherId = 1;
+  var nextEmployeeId = 1;
+  var nextSalaryStructureId = 1;
+  var nextPayrollVoucherId = 1;
+  var nextBankAccountId = 1;
+  var nextChequeEntryId = 1;
+  var nextBankTransactionId = 1;
 
   let companies = Map.empty<Nat, Company>();
   let ledgerGroups = Map.empty<Nat, LedgerGroup>();
@@ -292,6 +446,12 @@ actor {
   let stockGroups = Map.empty<Nat, StockGroup>();
   let stockItems = Map.empty<Nat, StockItem>();
   let stockVouchers = Map.empty<Nat, StockVoucher>();
+  let employees = Map.empty<Nat, Employee>();
+  let salaryStructures = Map.empty<Nat, SalaryStructure>();
+  let payrollVouchers = Map.empty<Nat, PayrollVoucher>();
+  let bankAccounts = Map.empty<Nat, BankAccount>();
+  let chequeEntries = Map.empty<Nat, ChequeEntry>();
+  let bankTransactions = Map.empty<Nat, BankTransaction>();
 
   // PHASE 1 NON-GST FUNCTIONS
   public shared ({ caller }) func createCompany(name : Text, financialYearStart : Text, financialYearEnd : Text, currency : Text, gstin : Text, address : Text) : async Company {
@@ -366,10 +526,7 @@ actor {
     ledgers.values().toArray().sort();
   };
 
-  public shared ({ caller }) func createVoucher(companyId : Nat, voucherType : Text, voucherNumber : Nat, date : Time.Time, narration : Text, entries : [VoucherEntry]) : async {
-    voucherId : Nat;
-    voucher : Voucher;
-  } {
+  public shared ({ caller }) func createVoucher(companyId : Nat, voucherType : Text, voucherNumber : Nat, date : Time.Time, narration : Text, entries : [VoucherEntry]) : async { voucherId : Nat; voucher : Voucher } {
     let debitTotal = entries.filter(func(e) { e.entryType == "DR" }).map(func(e) { e.amount }).foldLeft(0.0, func(acc, amount) { acc + amount });
     let creditTotal = entries.filter(func(e) { e.entryType == "CR" }).map(func(e) { e.amount }).foldLeft(0.0, func(acc, amount) { acc + amount });
 
@@ -540,74 +697,76 @@ actor {
   };
 
   public query ({ caller }) func getGSTR1(companyId : Nat, fromDate : Time.Time, toDate : Time.Time) : async [GSTR1Entry] {
-    gstVouchers.values().filter(func(v) { v.companyId == companyId and v.voucherType == "Sales" and v.date >= fromDate and v.date <= toDate }).map(
-      func(v) {
-        let totalTaxableValue = v.entries.map(func(e) { switch (e.taxableAmount) { case (?amount) { amount }; case (null) { 0.0 } } }).foldLeft(0.0, func(acc, amount) { acc + amount });
-
-        let totalCGST = v.entries.map(func(e) { switch (e.cgstAmount) { case (?amount) { amount }; case (null) { 0.0 } } }).foldLeft(0.0, func(acc, amount) { acc + amount });
-        let totalSGST = v.entries.map(func(e) { switch (e.sgstAmount) { case (?amount) { amount }; case (null) { 0.0 } } }).foldLeft(0.0, func(acc, amount) { acc + amount });
-        let totalIGST = v.entries.map(func(e) { switch (e.igstAmount) { case (?amount) { amount }; case (null) { 0.0 } } }).foldLeft(0.0, func(acc, amount) { acc + amount });
-        let totalCess = v.entries.map(func(e) { switch (e.cessAmount) { case (?amount) { amount }; case (null) { 0.0 } } }).foldLeft(0.0, func(acc, amount) { acc + amount });
-
-        {
-          invoiceNumber = v.voucherNumber;
-          invoiceDate = v.date;
-          partyName = v.partyName;
-          partyGSTIN = v.partyGSTIN;
-          placeOfSupply = v.placeOfSupply;
-          invoiceValue = totalTaxableValue + totalCGST + totalSGST + totalIGST + totalCess;
-          taxableValue = totalTaxableValue;
-          cgst = totalCGST;
-          sgst = totalSGST;
-          igst = totalIGST;
-          cess = totalCess;
-          hsnCode = switch (v.entries[0].hsnCode) { case (?code) { code }; case (null) { "" } };
-        };
-      }
-    ).toArray();
+    gstVouchers.values().filter(func(v) {
+      v.companyId == companyId and v.date >= fromDate and v.date <= toDate and v.voucherType == "Sales"
+    }).map(func(v) {
+      let taxableValue = v.entries.foldLeft(0.0, func(acc, e) {
+        switch (e.taxableAmount) { case (?ta) { acc + ta }; case (null) { acc } };
+      });
+      let cgst = v.entries.foldLeft(0.0, func(acc, e) {
+        switch (e.cgstAmount) { case (?ca) { acc + ca }; case (null) { acc } };
+      });
+      let sgst = v.entries.foldLeft(0.0, func(acc, e) {
+        switch (e.sgstAmount) { case (?sa) { acc + sa }; case (null) { acc } };
+      });
+      let igst = v.entries.foldLeft(0.0, func(acc, e) {
+        switch (e.igstAmount) { case (?ia) { acc + ia }; case (null) { acc } };
+      });
+      let cess = v.entries.foldLeft(0.0, func(acc, e) {
+        switch (e.cessAmount) { case (?ca) { acc + ca }; case (null) { acc } };
+      });
+      let hsnCode = switch (v.entries[0].hsnCode) { case (?h) { h }; case (null) { "" } };
+      {
+        invoiceNumber = v.voucherNumber;
+        invoiceDate = v.date;
+        partyName = v.partyName;
+        partyGSTIN = v.partyGSTIN;
+        placeOfSupply = v.placeOfSupply;
+        invoiceValue = taxableValue + cgst + sgst + igst + cess;
+        taxableValue;
+        cgst;
+        sgst;
+        igst;
+        cess;
+        hsnCode;
+      };
+    }).toArray();
   };
 
   public query ({ caller }) func getGSTR3B(companyId : Nat, fromDate : Time.Time, toDate : Time.Time) : async GSTR3BSummary {
-    let filteredVouchers = gstVouchers.values().toArray().filter(
-      func(v) {
-        v.companyId == companyId and v.date >= fromDate and v.date <= toDate;
-      }
-    );
+    let salesVouchers = gstVouchers.values().filter(func(v) {
+      v.companyId == companyId and v.date >= fromDate and v.date <= toDate and v.voucherType == "Sales"
+    }).toArray();
+    let purchaseVouchers = gstVouchers.values().filter(func(v) {
+      v.companyId == companyId and v.date >= fromDate and v.date <= toDate and v.voucherType == "Purchase"
+    }).toArray();
 
     var outwardTaxableSupplies = 0.0;
     var outwardTaxableIGST = 0.0;
     var outwardTaxableCGST = 0.0;
     var outwardTaxableSGST = 0.0;
-    var zeroRatedSupplies = 0.0;
-    var exemptSupplies = 0.0;
     var inwardSuppliesITC = 0.0;
     var inwardIGST = 0.0;
     var inwardCGST = 0.0;
     var inwardSGST = 0.0;
 
-    filteredVouchers.forEach(
-      func(v) {
-        switch (v.voucherType) {
-          case ("Sales") {
-            if (v.isInterState) {
-              outwardTaxableIGST += v.entries.map(func(e) { switch (e.igstAmount) { case (?amount) { amount }; case (null) { 0.0 } } }).foldLeft(0.0, func(acc, amount) { acc + amount });
-              outwardTaxableSupplies += v.entries.map(func(e) { switch (e.taxableAmount) { case (?amount) { amount }; case (null) { 0.0 } } }).foldLeft(0.0, func(acc, amount) { acc + amount });
-            } else {
-              outwardTaxableCGST += v.entries.map(func(e) { switch (e.cgstAmount) { case (?amount) { amount }; case (null) { 0.0 } } }).foldLeft(0.0, func(acc, amount) { acc + amount });
-              outwardTaxableSGST += v.entries.map(func(e) { switch (e.sgstAmount) { case (?amount) { amount }; case (null) { 0.0 } } }).foldLeft(0.0, func(acc, amount) { acc + amount });
-              outwardTaxableSupplies += v.entries.map(func(e) { switch (e.taxableAmount) { case (?amount) { amount }; case (null) { 0.0 } } }).foldLeft(0.0, func(acc, amount) { acc + amount });
-            };
-          };
-          case ("Purchase") {
-            inwardIGST += v.entries.map(func(e) { switch (e.igstAmount) { case (?amount) { amount }; case (null) { 0.0 } } }).foldLeft(0.0, func(acc, amount) { acc + amount });
-            inwardCGST += v.entries.map(func(e) { switch (e.cgstAmount) { case (?amount) { amount }; case (null) { 0.0 } } }).foldLeft(0.0, func(acc, amount) { acc + amount });
-            inwardSGST += v.entries.map(func(e) { switch (e.sgstAmount) { case (?amount) { amount }; case (null) { 0.0 } } }).foldLeft(0.0, func(acc, amount) { acc + amount });
-            inwardSuppliesITC += v.entries.map(func(e) { switch (e.taxableAmount) { case (?amount) { amount }; case (null) { 0.0 } } }).foldLeft(0.0, func(acc, amount) { acc + amount });
-          };
-          case (_) {};
-        };
-      }
-    );
+    salesVouchers.forEach(func(v) {
+      v.entries.forEach(func(e) {
+        switch (e.taxableAmount) { case (?ta) { outwardTaxableSupplies += ta }; case (null) {} };
+        switch (e.igstAmount) { case (?ia) { outwardTaxableIGST += ia }; case (null) {} };
+        switch (e.cgstAmount) { case (?ca) { outwardTaxableCGST += ca }; case (null) {} };
+        switch (e.sgstAmount) { case (?sa) { outwardTaxableSGST += sa }; case (null) {} };
+      });
+    });
+
+    purchaseVouchers.forEach(func(v) {
+      v.entries.forEach(func(e) {
+        switch (e.taxableAmount) { case (?ta) { inwardSuppliesITC += ta }; case (null) {} };
+        switch (e.igstAmount) { case (?ia) { inwardIGST += ia }; case (null) {} };
+        switch (e.cgstAmount) { case (?ca) { inwardCGST += ca }; case (null) {} };
+        switch (e.sgstAmount) { case (?sa) { inwardSGST += sa }; case (null) {} };
+      });
+    });
 
     {
       outwardTaxableSupplies;
@@ -630,7 +789,8 @@ actor {
   public query ({ caller }) func getTaxLedgerBalances(companyId : Nat) : async [TaxLedgerBalance] {
     ledgers.values().filter(func(l) { l.companyId == companyId }).map(
       func(ledger) {
-        if (ledger.name.toLower().contains(#text("tax")) or ledger.name.toLower().contains(#text("gst")) or ledger.name.toLower().contains(#text("sgst")) or ledger.name.toLower().contains(#text("cgst")) or ledger.name.toLower().contains(#text("igst"))) {
+        let isTaxLedger = ledger.name.toLower().contains(#text("gst")) or ledger.name.toLower().contains(#text("cgst")) or ledger.name.toLower().contains(#text("sgst")) or ledger.name.toLower().contains(#text("igst"));
+        if (isTaxLedger) {
           let totalDebits = gstVouchers.values().toArray().foldLeft(
             0.0,
             func(acc, voucher) {
@@ -832,5 +992,291 @@ actor {
         balance = runningBalance;
       };
     }).filter(func(e) { e.inQty > 0.0 or e.outQty > 0.0 });
+  };
+
+  // PHASE 5: PAYROLL FUNCTIONS
+  public shared ({ caller }) func createEmployee(companyId : Nat, name : Text, employeeCode : Text, department : Text, designation : Text, dateOfJoining : Text, pan : Text, bankAccount : Text, bankName : Text, pfApplicable : Bool, esiApplicable : Bool) : async Employee {
+    let emp : Employee = {
+      id = nextEmployeeId;
+      companyId;
+      name;
+      employeeCode;
+      department;
+      designation;
+      dateOfJoining;
+      pan;
+      bankAccount;
+      bankName;
+      pfApplicable;
+      esiApplicable;
+      isActive = true;
+    };
+    employees.add(nextEmployeeId, emp);
+    nextEmployeeId += 1;
+    emp;
+  };
+
+  public shared ({ caller }) func updateEmployee(id : Nat, name : Text, employeeCode : Text, department : Text, designation : Text, dateOfJoining : Text, pan : Text, bankAccount : Text, bankName : Text, pfApplicable : Bool, esiApplicable : Bool, isActive : Bool) : async Employee {
+    switch (employees.get(id)) {
+      case (?emp) {
+        let updated : Employee = {
+          id = emp.id;
+          companyId = emp.companyId;
+          name;
+          employeeCode;
+          department;
+          designation;
+          dateOfJoining;
+          pan;
+          bankAccount;
+          bankName;
+          pfApplicable;
+          esiApplicable;
+          isActive;
+        };
+        employees.add(id, updated);
+        updated;
+      };
+      case (null) { Runtime.trap("Employee not found") };
+    };
+  };
+
+  public query ({ caller }) func getAllEmployees(companyId : Nat) : async [Employee] {
+    employees.values().filter(func(e) { e.companyId == companyId }).toArray().sort();
+  };
+
+  public shared ({ caller }) func saveSalaryStructure(companyId : Nat, employeeId : Nat, basic : Float, hra : Float, da : Float, conveyance : Float, specialAllowance : Float, otherAllowances : Float, pf : Float, esi : Float, tds : Float, professionalTax : Float, otherDeductions : Float) : async SalaryStructure {
+    let ss : SalaryStructure = {
+      id = nextSalaryStructureId;
+      companyId;
+      employeeId;
+      basic;
+      hra;
+      da;
+      conveyance;
+      specialAllowance;
+      otherAllowances;
+      pf;
+      esi;
+      tds;
+      professionalTax;
+      otherDeductions;
+    };
+    let existing = salaryStructures.values().filter(func(s) { s.employeeId == employeeId and s.companyId == companyId }).toArray();
+    existing.forEach(func(s) { salaryStructures.remove(s.id) });
+    salaryStructures.add(nextSalaryStructureId, ss);
+    nextSalaryStructureId += 1;
+    ss;
+  };
+
+  public query ({ caller }) func getSalaryStructure(companyId : Nat, employeeId : Nat) : async ?SalaryStructure {
+    let matches = salaryStructures.values().filter(func(s) { s.employeeId == employeeId and s.companyId == companyId }).toArray();
+    if (matches.size() > 0) { ?matches[0] } else { null };
+  };
+
+  public query ({ caller }) func getAllSalaryStructures(companyId : Nat) : async [SalaryStructure] {
+    salaryStructures.values().filter(func(s) { s.companyId == companyId }).toArray().sort();
+  };
+
+  public shared ({ caller }) func createPayrollVoucher(companyId : Nat, month : Nat, year : Nat, entries : [PayrollEntry]) : async PayrollVoucher {
+    let pv : PayrollVoucher = {
+      id = nextPayrollVoucherId;
+      companyId;
+      month;
+      year;
+      entries;
+      processedAt = Time.now();
+    };
+    payrollVouchers.add(nextPayrollVoucherId, pv);
+    nextPayrollVoucherId += 1;
+    pv;
+  };
+
+  public query ({ caller }) func getPayrollVoucher(companyId : Nat, month : Nat, year : Nat) : async ?PayrollVoucher {
+    let matches = payrollVouchers.values().filter(func(p) { p.companyId == companyId and p.month == month and p.year == year }).toArray();
+    if (matches.size() > 0) { ?matches[0] } else { null };
+  };
+
+  public query ({ caller }) func getAllPayrollVouchers(companyId : Nat) : async [PayrollVoucher] {
+    payrollVouchers.values().filter(func(p) { p.companyId == companyId }).toArray().sort();
+  };
+
+  // PHASE 6: Banking Module Functions
+  public shared ({ caller }) func createBankAccount(companyId : Nat, accountName : Text, accountNumber : Text, ifscCode : Text, bankName : Text, branchName : Text, linkedLedgerId : Nat, openingBalance : Float) : async BankAccount {
+    let bankAccount : BankAccount = {
+      id = nextBankAccountId;
+      companyId;
+      accountName;
+      accountNumber;
+      ifscCode;
+      bankName;
+      branchName;
+      linkedLedgerId;
+      openingBalance;
+      isActive = true;
+    };
+    bankAccounts.add(nextBankAccountId, bankAccount);
+    nextBankAccountId += 1;
+    bankAccount;
+  };
+
+  public shared ({ caller }) func updateBankAccount(id : Nat, accountName : Text, accountNumber : Text, ifscCode : Text, bankName : Text, branchName : Text, linkedLedgerId : Nat, openingBalance : Float, isActive : Bool) : async BankAccount {
+    switch (bankAccounts.get(id)) {
+      case (?bankAccount) {
+        let updatedBankAccount : BankAccount = {
+          id = bankAccount.id;
+          companyId = bankAccount.companyId;
+          accountName;
+          accountNumber;
+          ifscCode;
+          bankName;
+          branchName;
+          linkedLedgerId;
+          openingBalance;
+          isActive;
+        };
+        bankAccounts.add(id, updatedBankAccount);
+        updatedBankAccount;
+      };
+      case (null) { Runtime.trap("Bank account not found") };
+    };
+  };
+
+  public query ({ caller }) func getAllBankAccounts(companyId : Nat) : async [BankAccount] {
+    bankAccounts.values().filter(func(b) { b.companyId == companyId }).toArray().sort();
+  };
+
+  public shared ({ caller }) func createChequeEntry(companyId : Nat, bankAccountId : Nat, chequeNumber : Text, chequeDate : Time.Time, amount : Float, payeeName : Text, chequeType : Text, remarks : Text) : async ChequeEntry {
+    let chequeEntry : ChequeEntry = {
+      id = nextChequeEntryId;
+      companyId;
+      bankAccountId;
+      chequeNumber;
+      chequeDate;
+      amount;
+      payeeName;
+      chequeType;
+      status = "Pending";
+      voucherId = null;
+      remarks;
+    };
+    chequeEntries.add(nextChequeEntryId, chequeEntry);
+    nextChequeEntryId += 1;
+    chequeEntry;
+  };
+
+  public shared ({ caller }) func updateChequeStatus(id : Nat, status : Text, remarks : Text) : async ChequeEntry {
+    switch (chequeEntries.get(id)) {
+      case (?chequeEntry) {
+        let updatedChequeEntry : ChequeEntry = {
+          id = chequeEntry.id;
+          companyId = chequeEntry.companyId;
+          bankAccountId = chequeEntry.bankAccountId;
+          chequeNumber = chequeEntry.chequeNumber;
+          chequeDate = chequeEntry.chequeDate;
+          amount = chequeEntry.amount;
+          payeeName = chequeEntry.payeeName;
+          chequeType = chequeEntry.chequeType;
+          status;
+          voucherId = chequeEntry.voucherId;
+          remarks;
+        };
+        chequeEntries.add(id, updatedChequeEntry);
+        updatedChequeEntry;
+      };
+      case (null) { Runtime.trap("Cheque entry not found") };
+    };
+  };
+
+  public query ({ caller }) func getAllCheques(companyId : Nat) : async [ChequeEntry] {
+    chequeEntries.values().filter(func(c) { c.companyId == companyId }).toArray().sort();
+  };
+
+  public query ({ caller }) func getChequesByBankAccount(companyId : Nat, bankAccountId : Nat) : async [ChequeEntry] {
+    chequeEntries.values().filter(func(c) { c.companyId == companyId and c.bankAccountId == bankAccountId }).toArray().sort();
+  };
+
+  public shared ({ caller }) func createBankTransaction(companyId : Nat, bankAccountId : Nat, date : Time.Time, description : Text, amount : Float, transactionType : Text, voucherId : ?Nat) : async BankTransaction {
+    let bankTransaction : BankTransaction = {
+      id = nextBankTransactionId;
+      companyId;
+      bankAccountId;
+      date;
+      description;
+      amount;
+      transactionType;
+      voucherId;
+      isReconciled = false;
+      reconciledDate = null;
+    };
+    bankTransactions.add(nextBankTransactionId, bankTransaction);
+    nextBankTransactionId += 1;
+    bankTransaction;
+  };
+
+  public shared ({ caller }) func reconcileTransaction(transactionId : Nat, voucherId : ?Nat, remarks : Text) : async BankTransaction {
+    switch (bankTransactions.get(transactionId)) {
+      case (?transaction) {
+        let updatedTransaction : BankTransaction = {
+          id = transaction.id;
+          companyId = transaction.companyId;
+          bankAccountId = transaction.bankAccountId;
+          date = transaction.date;
+          description = transaction.description;
+          amount = transaction.amount;
+          transactionType = transaction.transactionType;
+          voucherId;
+          isReconciled = true;
+          reconciledDate = ?Time.now();
+        };
+        bankTransactions.add(transactionId, updatedTransaction);
+        updatedTransaction;
+      };
+      case (null) { Runtime.trap("Bank transaction not found") };
+    };
+  };
+
+  public shared ({ caller }) func unreconcileTransaction(transactionId : Nat) : async BankTransaction {
+    switch (bankTransactions.get(transactionId)) {
+      case (?transaction) {
+        let updatedTransaction : BankTransaction = {
+          id = transaction.id;
+          companyId = transaction.companyId;
+          bankAccountId = transaction.bankAccountId;
+          date = transaction.date;
+          description = transaction.description;
+          amount = transaction.amount;
+          transactionType = transaction.transactionType;
+          voucherId = transaction.voucherId;
+          isReconciled = false;
+          reconciledDate = null;
+        };
+        bankTransactions.add(transactionId, updatedTransaction);
+        updatedTransaction;
+      };
+      case (null) { Runtime.trap("Bank transaction not found") };
+    };
+  };
+
+  public query ({ caller }) func getBankTransactions(companyId : Nat, bankAccountId : Nat) : async [BankTransaction] {
+    bankTransactions.values().filter(func(t) { t.companyId == companyId and t.bankAccountId == bankAccountId }).toArray().sort();
+  };
+
+  public query ({ caller }) func getUnreconciledTransactions(companyId : Nat, bankAccountId : Nat) : async [BankTransaction] {
+    bankTransactions.values().filter(func(t) { t.companyId == companyId and t.bankAccountId == bankAccountId and not t.isReconciled }).toArray().sort();
+  };
+
+  public query ({ caller }) func getBankStatement(companyId : Nat, bankAccountId : Nat, fromDate : Time.Time, toDate : Time.Time) : async [BankTransaction] {
+    bankTransactions.values().filter(func(t) { t.companyId == companyId and t.bankAccountId == bankAccountId and t.date >= fromDate and t.date <= toDate }).toArray().sort();
+  };
+
+  public query ({ caller }) func getBankBalance(companyId : Nat, bankAccountId : Nat) : async Float {
+    let account = switch (bankAccounts.get(bankAccountId)) {
+      case (?account) { account };
+      case (null) { Runtime.trap("Bank account not found") };
+    };
+    let credits = bankTransactions.values().filter(func(t) { t.companyId == companyId and t.bankAccountId == bankAccountId and t.transactionType == "Credit" }).map(func(t) { t.amount }).foldLeft(0.0, func(acc, val) { acc + val });
+    let debits = bankTransactions.values().filter(func(t) { t.companyId == companyId and t.bankAccountId == bankAccountId and t.transactionType == "Debit" }).map(func(t) { t.amount }).foldLeft(0.0, func(acc, val) { acc + val });
+    account.openingBalance + credits - debits;
   };
 };

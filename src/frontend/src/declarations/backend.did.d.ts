@@ -10,6 +10,43 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface BankAccount {
+  'id' : bigint,
+  'linkedLedgerId' : bigint,
+  'ifscCode' : string,
+  'isActive' : boolean,
+  'bankName' : string,
+  'accountName' : string,
+  'openingBalance' : number,
+  'accountNumber' : string,
+  'branchName' : string,
+  'companyId' : bigint,
+}
+export interface BankTransaction {
+  'id' : bigint,
+  'isReconciled' : boolean,
+  'transactionType' : string,
+  'bankAccountId' : bigint,
+  'date' : Time,
+  'description' : string,
+  'voucherId' : [] | [bigint],
+  'amount' : number,
+  'reconciledDate' : [] | [Time],
+  'companyId' : bigint,
+}
+export interface ChequeEntry {
+  'id' : bigint,
+  'status' : string,
+  'chequeDate' : Time,
+  'chequeType' : string,
+  'chequeNumber' : string,
+  'bankAccountId' : bigint,
+  'payeeName' : string,
+  'voucherId' : [] | [bigint],
+  'amount' : number,
+  'remarks' : string,
+  'companyId' : bigint,
+}
 export interface Company {
   'id' : bigint,
   'name' : string,
@@ -24,6 +61,21 @@ export interface DayBookEntry {
   'entries' : Array<VoucherEntry>,
   'voucherNumber' : bigint,
   'narration' : string,
+}
+export interface Employee {
+  'id' : bigint,
+  'pan' : string,
+  'pfApplicable' : boolean,
+  'employeeCode' : string,
+  'bankAccount' : string,
+  'name' : string,
+  'designation' : string,
+  'isActive' : boolean,
+  'bankName' : string,
+  'dateOfJoining' : string,
+  'department' : string,
+  'esiApplicable' : boolean,
+  'companyId' : bigint,
 }
 export interface GSTR1Entry {
   'invoiceValue' : number,
@@ -109,6 +161,109 @@ export interface LedgerGroup {
   'parentGroup' : [] | [bigint],
   'name' : string,
 }
+export interface PayrollEntry {
+  'da' : number,
+  'pf' : number,
+  'esi' : number,
+  'hra' : number,
+  'tds' : number,
+  'totalDeductions' : number,
+  'employeeName' : string,
+  'otherAllowances' : number,
+  'designation' : string,
+  'netPayable' : number,
+  'employeeId' : bigint,
+  'basic' : number,
+  'grossEarnings' : number,
+  'specialAllowance' : number,
+  'otherDeductions' : number,
+  'department' : string,
+  'conveyance' : number,
+  'professionalTax' : number,
+}
+export interface PayrollVoucher {
+  'id' : bigint,
+  'month' : bigint,
+  'year' : bigint,
+  'processedAt' : Time,
+  'entries' : Array<PayrollEntry>,
+  'companyId' : bigint,
+}
+export interface SalaryStructure {
+  'da' : number,
+  'id' : bigint,
+  'pf' : number,
+  'esi' : number,
+  'hra' : number,
+  'tds' : number,
+  'otherAllowances' : number,
+  'employeeId' : bigint,
+  'basic' : number,
+  'specialAllowance' : number,
+  'otherDeductions' : number,
+  'conveyance' : number,
+  'professionalTax' : number,
+  'companyId' : bigint,
+}
+export interface StockGroup {
+  'id' : bigint,
+  'name' : string,
+  'unit' : string,
+  'parentGroupId' : [] | [bigint],
+}
+export interface StockItem {
+  'id' : bigint,
+  'stockGroupId' : bigint,
+  'name' : string,
+  'unit' : string,
+  'openingRate' : number,
+  'hsnCode' : string,
+  'openingValue' : number,
+  'openingQty' : number,
+  'gstRate' : number,
+  'companyId' : bigint,
+}
+export interface StockLedgerEntry {
+  'outQty' : number,
+  'balance' : number,
+  'date' : Time,
+  'voucherType' : string,
+  'voucherNumber' : bigint,
+  'narration' : string,
+  'inQty' : number,
+  'inValue' : number,
+  'outValue' : number,
+}
+export interface StockSummaryEntry {
+  'itemId' : bigint,
+  'outQty' : number,
+  'closingValue' : number,
+  'unit' : string,
+  'closingQty' : number,
+  'itemName' : string,
+  'openingValue' : number,
+  'openingQty' : number,
+  'inQty' : number,
+  'inValue' : number,
+  'outValue' : number,
+}
+export interface StockVoucher {
+  'id' : bigint,
+  'date' : Time,
+  'voucherType' : string,
+  'entries' : Array<StockVoucherEntry>,
+  'voucherNumber' : bigint,
+  'narration' : string,
+  'companyId' : bigint,
+}
+export interface StockVoucherEntry {
+  'qty' : number,
+  'warehouseTo' : [] | [string],
+  'stockItemId' : bigint,
+  'rate' : number,
+  'warehouseFrom' : [] | [string],
+  'amount' : number,
+}
 export interface TaxLedgerBalance {
   'totalDebits' : number,
   'closingBalance' : number,
@@ -140,9 +295,37 @@ export interface VoucherEntry {
 }
 export interface _SERVICE {
   'addLedgerGroup' : ActorMethod<[string, [] | [bigint], string], LedgerGroup>,
+  'createBankAccount' : ActorMethod<
+    [bigint, string, string, string, string, string, bigint, number],
+    BankAccount
+  >,
+  'createBankTransaction' : ActorMethod<
+    [bigint, bigint, Time, string, number, string, [] | [bigint]],
+    BankTransaction
+  >,
+  'createChequeEntry' : ActorMethod<
+    [bigint, bigint, string, Time, number, string, string, string],
+    ChequeEntry
+  >,
   'createCompany' : ActorMethod<
     [string, string, string, string, string, string],
     Company
+  >,
+  'createEmployee' : ActorMethod<
+    [
+      bigint,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      boolean,
+      boolean,
+    ],
+    Employee
   >,
   'createGSTVoucher' : ActorMethod<
     [
@@ -164,27 +347,115 @@ export interface _SERVICE {
     [bigint, string, bigint, number, string],
     Ledger
   >,
+  'createPayrollVoucher' : ActorMethod<
+    [bigint, bigint, bigint, Array<PayrollEntry>],
+    PayrollVoucher
+  >,
+  'createStockGroup' : ActorMethod<[string, [] | [bigint], string], StockGroup>,
+  'createStockItem' : ActorMethod<
+    [bigint, string, bigint, string, number, number, number, string],
+    StockItem
+  >,
+  'createStockVoucher' : ActorMethod<
+    [bigint, string, bigint, Time, string, Array<StockVoucherEntry>],
+    { 'voucher' : StockVoucher, 'voucherId' : bigint }
+  >,
   'createVoucher' : ActorMethod<
     [bigint, string, bigint, Time, string, Array<VoucherEntry>],
     { 'voucher' : Voucher, 'voucherId' : bigint }
   >,
+  'getAllBankAccounts' : ActorMethod<[bigint], Array<BankAccount>>,
+  'getAllCheques' : ActorMethod<[bigint], Array<ChequeEntry>>,
   'getAllCompanies' : ActorMethod<[], Array<Company>>,
+  'getAllEmployees' : ActorMethod<[bigint], Array<Employee>>,
   'getAllGSTVouchers' : ActorMethod<[bigint], Array<GSTVoucher>>,
   'getAllHSNCodes' : ActorMethod<[], Array<HSNCode>>,
   'getAllLedgerGroups' : ActorMethod<[], Array<LedgerGroup>>,
   'getAllLedgers' : ActorMethod<[], Array<Ledger>>,
+  'getAllPayrollVouchers' : ActorMethod<[bigint], Array<PayrollVoucher>>,
+  'getAllSalaryStructures' : ActorMethod<[bigint], Array<SalaryStructure>>,
+  'getAllStockGroups' : ActorMethod<[], Array<StockGroup>>,
+  'getAllStockItems' : ActorMethod<[], Array<StockItem>>,
+  'getAllStockVouchers' : ActorMethod<[bigint], Array<StockVoucher>>,
+  'getBankBalance' : ActorMethod<[bigint, bigint], number>,
+  'getBankStatement' : ActorMethod<
+    [bigint, bigint, Time, Time],
+    Array<BankTransaction>
+  >,
+  'getBankTransactions' : ActorMethod<[bigint, bigint], Array<BankTransaction>>,
+  'getChequesByBankAccount' : ActorMethod<[bigint, bigint], Array<ChequeEntry>>,
   'getDayBook' : ActorMethod<[bigint, Time], Array<DayBookEntry>>,
   'getGSTR1' : ActorMethod<[bigint, Time, Time], Array<GSTR1Entry>>,
   'getGSTR3B' : ActorMethod<[bigint, Time, Time], GSTR3BSummary>,
   'getGSTSettings' : ActorMethod<[bigint], [] | [GSTSettings]>,
+  'getPayrollVoucher' : ActorMethod<
+    [bigint, bigint, bigint],
+    [] | [PayrollVoucher]
+  >,
+  'getSalaryStructure' : ActorMethod<[bigint, bigint], [] | [SalaryStructure]>,
+  'getStockLedger' : ActorMethod<[bigint, bigint], Array<StockLedgerEntry>>,
+  'getStockSummary' : ActorMethod<[bigint], Array<StockSummaryEntry>>,
   'getTaxLedgerBalances' : ActorMethod<[bigint], Array<TaxLedgerBalance>>,
   'getTrialBalance' : ActorMethod<[bigint], Array<TrialBalanceEntry>>,
+  'getUnreconciledTransactions' : ActorMethod<
+    [bigint, bigint],
+    Array<BankTransaction>
+  >,
   'initializePredefinedLedgerGroups' : ActorMethod<[], undefined>,
+  'reconcileTransaction' : ActorMethod<
+    [bigint, [] | [bigint], string],
+    BankTransaction
+  >,
+  'saveSalaryStructure' : ActorMethod<
+    [
+      bigint,
+      bigint,
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+    ],
+    SalaryStructure
+  >,
   'setGSTSettings' : ActorMethod<[bigint, string, string, string], GSTSettings>,
+  'unreconcileTransaction' : ActorMethod<[bigint], BankTransaction>,
+  'updateBankAccount' : ActorMethod<
+    [bigint, string, string, string, string, string, bigint, number, boolean],
+    BankAccount
+  >,
+  'updateChequeStatus' : ActorMethod<[bigint, string, string], ChequeEntry>,
+  'updateEmployee' : ActorMethod<
+    [
+      bigint,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      boolean,
+      boolean,
+      boolean,
+    ],
+    Employee
+  >,
   'updateHSNCode' : ActorMethod<[bigint, string, string, number], HSNCode>,
   'updateLedger' : ActorMethod<
     [bigint, string, bigint, number, string],
     Ledger
+  >,
+  'updateStockItem' : ActorMethod<
+    [bigint, string, bigint, string, number, number, number, string],
+    StockItem
   >,
 }
 export declare const idlService: IDL.ServiceClass;

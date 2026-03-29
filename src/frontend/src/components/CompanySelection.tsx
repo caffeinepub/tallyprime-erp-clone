@@ -50,7 +50,7 @@ export default function CompanySelection({ onSelectCompany }: Props) {
           </div>
           <div>
             <h1 className="text-[22px] font-bold text-foreground">
-              TallyPrime
+              HisabKitab Pro
             </h1>
             <p className="text-[11px] text-muted-foreground">
               Select or create a company to proceed

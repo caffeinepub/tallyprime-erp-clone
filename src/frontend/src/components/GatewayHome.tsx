@@ -77,7 +77,7 @@ export default function GatewayHome({ company, onNavigate }: Props) {
       {/* Company Header */}
       <div className="mb-6">
         <div className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">
-          Gateway of Tally
+          Gateway of HisabKitab
         </div>
         <h2 className="text-[20px] font-bold text-foreground">
           {company.name}

@@ -16,13 +16,20 @@ import {
   Sun,
   TrendingUp,
   User,
+  Users,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Company } from "./backend.d";
 import BalanceSheet from "./components/BalanceSheet";
+import BankAccounts from "./components/BankAccounts";
+import BankReconciliation from "./components/BankReconciliation";
+import BankStatement from "./components/BankStatement";
 import CashFlowStatement from "./components/CashFlowStatement";
+import ChequeManagement from "./components/ChequeManagement";
+import ChequeRegister from "./components/ChequeRegister";
 import CompanySelection from "./components/CompanySelection";
 import DayBook from "./components/DayBook";
+import EmployeeMaster from "./components/EmployeeMaster";
 import GSTR1Report from "./components/GSTR1Report";
 import GSTR3BReport from "./components/GSTR3BReport";
 import GSTSettings from "./components/GSTSettings";
@@ -31,6 +38,10 @@ import GatewayHome from "./components/GatewayHome";
 import HSNMaster from "./components/HSNMaster";
 import LedgerList from "./components/LedgerList";
 import PLAccount from "./components/PLAccount";
+import PaySlip from "./components/PaySlip";
+import PayrollRegister from "./components/PayrollRegister";
+import PayrollVoucherEntry from "./components/PayrollVoucherEntry";
+import SalaryStructureSetup from "./components/SalaryStructureSetup";
 import StockGroups from "./components/StockGroups";
 import StockItems from "./components/StockItems";
 import StockLedger from "./components/StockLedger";
@@ -51,7 +62,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   {
     key: "gateway",
-    label: "Gateway of Tally",
+    label: "Gateway of HisabKitab",
     icon: LayoutDashboard,
     fkey: null,
   },
@@ -114,6 +125,74 @@ const NAV_ITEMS: NavItem[] = [
   { key: "stockSummary", label: "Stock Summary", icon: BarChart3, fkey: null },
   { key: "stockLedger", label: "Stock Ledger", icon: BookOpen, fkey: null },
   {
+    key: "__header_payroll",
+    label: "Payroll",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "employeeMaster", label: "Employee Master", icon: Users, fkey: null },
+  {
+    key: "salaryStructure",
+    label: "Salary Structure",
+    icon: FileText,
+    fkey: null,
+  },
+  {
+    key: "payrollVoucher",
+    label: "Process Payroll",
+    icon: Receipt,
+    fkey: null,
+  },
+  {
+    key: "__header_payroll_reports",
+    label: "Payroll Reports",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "payrollRegister",
+    label: "Payroll Register",
+    icon: BarChart3,
+    fkey: null,
+  },
+  { key: "paySlip", label: "Pay Slip", icon: FileText, fkey: null },
+  {
+    key: "__header_banking",
+    label: "Banking",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "bankAccounts", label: "Bank Accounts", icon: Landmark, fkey: null },
+  {
+    key: "issueReceiveCheque",
+    label: "Cheque Entry",
+    icon: Receipt,
+    fkey: null,
+  },
+  {
+    key: "chequeRegister",
+    label: "Cheque Register",
+    icon: FileText,
+    fkey: null,
+  },
+  {
+    key: "__header_bank_reports",
+    label: "Bank Reports",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "bankReconciliation",
+    label: "Bank Reconciliation",
+    icon: BarChart3,
+    fkey: null,
+  },
+  { key: "bankStatement", label: "Bank Statement", icon: BookOpen, fkey: null },
+  {
     key: "__header_utilities",
     label: "Utilities",
     icon: null,
@@ -121,7 +200,6 @@ const NAV_ITEMS: NavItem[] = [
     isHeader: true,
   },
   { key: "gateway", label: "Import", icon: null, fkey: null },
-  { key: "gateway", label: "Banking", icon: Landmark, fkey: null },
   {
     key: "__header_reports",
     label: "Reports",
@@ -146,7 +224,7 @@ const VOUCHER_TYPE_MAP: Record<string, string> = {
 };
 
 const VIEW_LABELS: Record<string, string> = {
-  gateway: "Gateway of Tally",
+  gateway: "Gateway of HisabKitab",
   ledgers: "List of Ledgers",
   voucher: "Voucher Entry",
   voucherContra: "Contra Voucher",
@@ -172,6 +250,16 @@ const VIEW_LABELS: Record<string, string> = {
   stockTransfer: "Stock Transfer",
   stockSummary: "Stock Summary",
   stockLedger: "Stock Ledger",
+  employeeMaster: "Employee Master",
+  salaryStructure: "Salary Structure",
+  payrollVoucher: "Process Payroll",
+  payrollRegister: "Payroll Register",
+  paySlip: "Pay Slip",
+  bankAccounts: "Bank Accounts",
+  issueReceiveCheque: "Cheque Entry",
+  chequeRegister: "Cheque Register",
+  bankReconciliation: "Bank Reconciliation",
+  bankStatement: "Bank Statement",
 };
 
 function ThemeToggle({
@@ -445,6 +533,27 @@ export default function App() {
     if (view === "stockSummary")
       return <StockSummary company={activeCompany} />;
     if (view === "stockLedger") return <StockLedger company={activeCompany} />;
+    // Phase 5: Payroll
+    if (view === "employeeMaster")
+      return <EmployeeMaster company={activeCompany} />;
+    if (view === "salaryStructure")
+      return <SalaryStructureSetup company={activeCompany} />;
+    if (view === "payrollVoucher")
+      return <PayrollVoucherEntry company={activeCompany} />;
+    if (view === "payrollRegister")
+      return <PayrollRegister company={activeCompany} />;
+    if (view === "paySlip") return <PaySlip company={activeCompany} />;
+    // Phase 6: Banking
+    if (view === "bankAccounts")
+      return <BankAccounts company={activeCompany} />;
+    if (view === "issueReceiveCheque")
+      return <ChequeManagement company={activeCompany} />;
+    if (view === "chequeRegister")
+      return <ChequeRegister company={activeCompany} />;
+    if (view === "bankReconciliation")
+      return <BankReconciliation company={activeCompany} />;
+    if (view === "bankStatement")
+      return <BankStatement company={activeCompany} />;
     if (view.startsWith("voucher")) {
       const vType = VOUCHER_TYPE_MAP[view] || "Journal";
       return (
@@ -466,10 +575,10 @@ export default function App() {
             <span className="text-primary-foreground font-bold text-sm">T</span>
           </div>
           <span className="text-[15px] font-bold text-foreground tracking-tight">
-            TallyPrime
+            HisabKitab Pro
           </span>
           <span className="text-[10px] text-muted-foreground font-mono ml-1">
-            v4.0
+            v6.0
           </span>
         </div>
 
@@ -590,7 +699,7 @@ export default function App() {
           {/* BOTTOM STATUS BAR */}
           <footer className="h-8 flex items-center px-4 gap-6 border-t border-border bg-secondary/30 flex-shrink-0">
             <span className="text-[10px] font-mono text-muted-foreground">
-              Ver. 4.0
+              Ver. 6.0
             </span>
             <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
               {[
@@ -607,14 +716,6 @@ export default function App() {
               ))}
             </div>
             <div className="flex-1" />
-            <a
-              href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-            >
-              © {new Date().getFullYear()}. Built with ❤ using caffeine.ai
-            </a>
           </footer>
         </div>
       </div>

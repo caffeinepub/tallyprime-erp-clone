@@ -7,10 +7,17 @@ export interface None {
     __kind__: "None";
 }
 export type Option<T> = Some<T> | None;
-export interface VoucherEntry {
-    ledgerId: bigint;
-    entryType: string;
-    amount: number;
+export interface StockItem {
+    id: bigint;
+    stockGroupId: bigint;
+    name: string;
+    unit: string;
+    openingRate: number;
+    hsnCode: string;
+    openingValue: number;
+    openingQty: number;
+    gstRate: number;
+    companyId: bigint;
 }
 export type Time = bigint;
 export interface GSTVoucherEntry {
@@ -27,35 +34,57 @@ export interface GSTVoucherEntry {
     cgstRate?: number;
     cessAmount?: number;
 }
-export interface Company {
+export interface ChequeEntry {
     id: bigint;
-    name: string;
-    financialYearEnd: string;
-    gstin: string;
-    currency: string;
-    address: string;
-    financialYearStart: string;
+    status: string;
+    chequeDate: Time;
+    chequeType: string;
+    chequeNumber: string;
+    bankAccountId: bigint;
+    payeeName: string;
+    voucherId?: bigint;
+    amount: number;
+    remarks: string;
+    companyId: bigint;
+}
+export interface BankTransaction {
+    id: bigint;
+    isReconciled: boolean;
+    transactionType: string;
+    bankAccountId: bigint;
+    date: Time;
+    description: string;
+    voucherId?: bigint;
+    amount: number;
+    reconciledDate?: Time;
+    companyId: bigint;
 }
 export interface TrialBalanceEntry {
     creditTotal: number;
     debitTotal: number;
     ledgerName: string;
 }
-export interface Voucher {
+export interface StockVoucher {
     id: bigint;
     date: Time;
     voucherType: string;
-    entries: Array<VoucherEntry>;
+    entries: Array<StockVoucherEntry>;
     voucherNumber: bigint;
     narration: string;
     companyId: bigint;
 }
-export interface LedgerGroup {
-    id: bigint;
-    isPredefined: boolean;
-    nature: string;
-    parentGroup?: bigint;
-    name: string;
+export interface StockSummaryEntry {
+    itemId: bigint;
+    outQty: number;
+    closingValue: number;
+    unit: string;
+    closingQty: number;
+    itemName: string;
+    openingValue: number;
+    openingQty: number;
+    inQty: number;
+    inValue: number;
+    outValue: number;
 }
 export interface GSTSettings {
     stateCode: string;
@@ -68,19 +97,6 @@ export interface HSNCode {
     code: string;
     description: string;
     gstRate: number;
-}
-export interface GSTVoucher {
-    id: bigint;
-    date: Time;
-    isInterState: boolean;
-    voucherType: string;
-    entries: Array<GSTVoucherEntry>;
-    voucherNumber: bigint;
-    narration: string;
-    partyName: string;
-    placeOfSupply: string;
-    partyGSTIN: string;
-    companyId: bigint;
 }
 export interface GSTR3BSummary {
     outwardTaxableSGST: number;
@@ -98,6 +114,21 @@ export interface GSTR3BSummary {
     outwardTaxableCGST: number;
     outwardTaxableIGST: number;
 }
+export interface Employee {
+    id: bigint;
+    pan: string;
+    pfApplicable: boolean;
+    employeeCode: string;
+    bankAccount: string;
+    name: string;
+    designation: string;
+    isActive: boolean;
+    bankName: string;
+    dateOfJoining: string;
+    department: string;
+    esiApplicable: boolean;
+    companyId: bigint;
+}
 export interface TaxLedgerBalance {
     totalDebits: number;
     closingBalance: number;
@@ -106,6 +137,130 @@ export interface TaxLedgerBalance {
     openingBalance: number;
     totalCredits: number;
     taxType: string;
+}
+export interface PayrollVoucher {
+    id: bigint;
+    month: bigint;
+    year: bigint;
+    processedAt: Time;
+    entries: Array<PayrollEntry>;
+    companyId: bigint;
+}
+export interface BankAccount {
+    id: bigint;
+    linkedLedgerId: bigint;
+    ifscCode: string;
+    isActive: boolean;
+    bankName: string;
+    accountName: string;
+    openingBalance: number;
+    accountNumber: string;
+    branchName: string;
+    companyId: bigint;
+}
+export interface VoucherEntry {
+    ledgerId: bigint;
+    entryType: string;
+    amount: number;
+}
+export interface StockVoucherEntry {
+    qty: number;
+    warehouseTo?: string;
+    stockItemId: bigint;
+    rate: number;
+    warehouseFrom?: string;
+    amount: number;
+}
+export interface StockLedgerEntry {
+    outQty: number;
+    balance: number;
+    date: Time;
+    voucherType: string;
+    voucherNumber: bigint;
+    narration: string;
+    inQty: number;
+    inValue: number;
+    outValue: number;
+}
+export interface Company {
+    id: bigint;
+    name: string;
+    financialYearEnd: string;
+    gstin: string;
+    currency: string;
+    address: string;
+    financialYearStart: string;
+}
+export interface Voucher {
+    id: bigint;
+    date: Time;
+    voucherType: string;
+    entries: Array<VoucherEntry>;
+    voucherNumber: bigint;
+    narration: string;
+    companyId: bigint;
+}
+export interface LedgerGroup {
+    id: bigint;
+    isPredefined: boolean;
+    nature: string;
+    parentGroup?: bigint;
+    name: string;
+}
+export interface StockGroup {
+    id: bigint;
+    name: string;
+    unit: string;
+    parentGroupId?: bigint;
+}
+export interface PayrollEntry {
+    da: number;
+    pf: number;
+    esi: number;
+    hra: number;
+    tds: number;
+    totalDeductions: number;
+    employeeName: string;
+    otherAllowances: number;
+    designation: string;
+    netPayable: number;
+    employeeId: bigint;
+    basic: number;
+    grossEarnings: number;
+    specialAllowance: number;
+    otherDeductions: number;
+    department: string;
+    conveyance: number;
+    professionalTax: number;
+}
+export interface GSTVoucher {
+    id: bigint;
+    date: Time;
+    isInterState: boolean;
+    voucherType: string;
+    entries: Array<GSTVoucherEntry>;
+    voucherNumber: bigint;
+    narration: string;
+    partyName: string;
+    placeOfSupply: string;
+    partyGSTIN: string;
+    companyId: bigint;
+}
+export interface SalaryStructure {
+    da: number;
+    id: bigint;
+    pf: number;
+    esi: number;
+    hra: number;
+    tds: number;
+    otherAllowances: number;
+    employeeId: bigint;
+    basic: number;
+    specialAllowance: number;
+    otherDeductions: number;
+    conveyance: number;
+    professionalTax: number;
+    companyId: bigint;
 }
 export interface GSTR1Entry {
     invoiceValue: number;
@@ -135,105 +290,67 @@ export interface Ledger {
     openingBalance: number;
     companyId: bigint;
 }
-// Phase 4: Inventory
-export interface StockGroup {
-    id: bigint;
-    name: string;
-    parentGroupId?: bigint;
-    unit: string;
-}
-export interface StockItem {
-    id: bigint;
-    companyId: bigint;
-    name: string;
-    stockGroupId: bigint;
-    unit: string;
-    openingQty: number;
-    openingRate: number;
-    openingValue: number;
-    gstRate: number;
-    hsnCode: string;
-}
-export interface StockVoucherEntry {
-    stockItemId: bigint;
-    qty: number;
-    rate: number;
-    amount: number;
-    warehouseFrom?: string;
-    warehouseTo?: string;
-}
-export interface StockVoucher {
-    id: bigint;
-    companyId: bigint;
-    voucherType: string;
-    voucherNumber: bigint;
-    date: Time;
-    narration: string;
-    entries: Array<StockVoucherEntry>;
-}
-export interface StockSummaryEntry {
-    itemId: bigint;
-    itemName: string;
-    unit: string;
-    openingQty: number;
-    openingValue: number;
-    inQty: number;
-    inValue: number;
-    outQty: number;
-    outValue: number;
-    closingQty: number;
-    closingValue: number;
-}
-export interface StockLedgerEntry {
-    date: Time;
-    voucherType: string;
-    voucherNumber: bigint;
-    narration: string;
-    inQty: number;
-    inValue: number;
-    outQty: number;
-    outValue: number;
-    balance: number;
-}
 export interface backendInterface {
     addLedgerGroup(name: string, parentGroup: bigint | null, nature: string): Promise<LedgerGroup>;
+    createBankAccount(companyId: bigint, accountName: string, accountNumber: string, ifscCode: string, bankName: string, branchName: string, linkedLedgerId: bigint, openingBalance: number): Promise<BankAccount>;
+    createBankTransaction(companyId: bigint, bankAccountId: bigint, date: Time, description: string, amount: number, transactionType: string, voucherId: bigint | null): Promise<BankTransaction>;
+    createChequeEntry(companyId: bigint, bankAccountId: bigint, chequeNumber: string, chequeDate: Time, amount: number, payeeName: string, chequeType: string, remarks: string): Promise<ChequeEntry>;
     createCompany(name: string, financialYearStart: string, financialYearEnd: string, currency: string, gstin: string, address: string): Promise<Company>;
+    createEmployee(companyId: bigint, name: string, employeeCode: string, department: string, designation: string, dateOfJoining: string, pan: string, bankAccount: string, bankName: string, pfApplicable: boolean, esiApplicable: boolean): Promise<Employee>;
     createGSTVoucher(companyId: bigint, voucherType: string, voucherNumber: bigint, date: Time, narration: string, entries: Array<GSTVoucherEntry>, partyName: string, partyGSTIN: string, placeOfSupply: string, isInterState: boolean): Promise<{
         voucher: GSTVoucher;
         voucherId: bigint;
     }>;
     createHSNCode(code: string, description: string, gstRate: number): Promise<HSNCode>;
     createLedger(companyId: bigint, name: string, groupId: bigint, openingBalance: number, balanceType: string): Promise<Ledger>;
+    createPayrollVoucher(companyId: bigint, month: bigint, year: bigint, entries: Array<PayrollEntry>): Promise<PayrollVoucher>;
+    createStockGroup(name: string, parentGroupId: bigint | null, unit: string): Promise<StockGroup>;
+    createStockItem(companyId: bigint, name: string, stockGroupId: bigint, unit: string, openingQty: number, openingRate: number, gstRate: number, hsnCode: string): Promise<StockItem>;
+    createStockVoucher(companyId: bigint, voucherType: string, voucherNumber: bigint, date: Time, narration: string, entries: Array<StockVoucherEntry>): Promise<{
+        voucher: StockVoucher;
+        voucherId: bigint;
+    }>;
     createVoucher(companyId: bigint, voucherType: string, voucherNumber: bigint, date: Time, narration: string, entries: Array<VoucherEntry>): Promise<{
         voucher: Voucher;
         voucherId: bigint;
     }>;
+    getAllBankAccounts(companyId: bigint): Promise<Array<BankAccount>>;
+    getAllCheques(companyId: bigint): Promise<Array<ChequeEntry>>;
     getAllCompanies(): Promise<Array<Company>>;
+    getAllEmployees(companyId: bigint): Promise<Array<Employee>>;
     getAllGSTVouchers(companyId: bigint): Promise<Array<GSTVoucher>>;
     getAllHSNCodes(): Promise<Array<HSNCode>>;
     getAllLedgerGroups(): Promise<Array<LedgerGroup>>;
     getAllLedgers(): Promise<Array<Ledger>>;
+    getAllPayrollVouchers(companyId: bigint): Promise<Array<PayrollVoucher>>;
+    getAllSalaryStructures(companyId: bigint): Promise<Array<SalaryStructure>>;
+    getAllStockGroups(): Promise<Array<StockGroup>>;
+    getAllStockItems(): Promise<Array<StockItem>>;
+    getAllStockVouchers(companyId: bigint): Promise<Array<StockVoucher>>;
+    getBankBalance(companyId: bigint, bankAccountId: bigint): Promise<number>;
+    getBankStatement(companyId: bigint, bankAccountId: bigint, fromDate: Time, toDate: Time): Promise<Array<BankTransaction>>;
+    getBankTransactions(companyId: bigint, bankAccountId: bigint): Promise<Array<BankTransaction>>;
+    getChequesByBankAccount(companyId: bigint, bankAccountId: bigint): Promise<Array<ChequeEntry>>;
     getDayBook(companyId: bigint, date: Time): Promise<Array<DayBookEntry>>;
     getGSTR1(companyId: bigint, fromDate: Time, toDate: Time): Promise<Array<GSTR1Entry>>;
     getGSTR3B(companyId: bigint, fromDate: Time, toDate: Time): Promise<GSTR3BSummary>;
     getGSTSettings(companyId: bigint): Promise<GSTSettings | null>;
+    getPayrollVoucher(companyId: bigint, month: bigint, year: bigint): Promise<PayrollVoucher | null>;
+    getSalaryStructure(companyId: bigint, employeeId: bigint): Promise<SalaryStructure | null>;
+    getStockLedger(companyId: bigint, stockItemId: bigint): Promise<Array<StockLedgerEntry>>;
+    getStockSummary(companyId: bigint): Promise<Array<StockSummaryEntry>>;
     getTaxLedgerBalances(companyId: bigint): Promise<Array<TaxLedgerBalance>>;
     getTrialBalance(companyId: bigint): Promise<Array<TrialBalanceEntry>>;
+    getUnreconciledTransactions(companyId: bigint, bankAccountId: bigint): Promise<Array<BankTransaction>>;
     initializePredefinedLedgerGroups(): Promise<void>;
+    reconcileTransaction(transactionId: bigint, voucherId: bigint | null, remarks: string): Promise<BankTransaction>;
+    saveSalaryStructure(companyId: bigint, employeeId: bigint, basic: number, hra: number, da: number, conveyance: number, specialAllowance: number, otherAllowances: number, pf: number, esi: number, tds: number, professionalTax: number, otherDeductions: number): Promise<SalaryStructure>;
     setGSTSettings(companyId: bigint, registrationType: string, stateCode: string, stateName: string): Promise<GSTSettings>;
+    unreconcileTransaction(transactionId: bigint): Promise<BankTransaction>;
+    updateBankAccount(id: bigint, accountName: string, accountNumber: string, ifscCode: string, bankName: string, branchName: string, linkedLedgerId: bigint, openingBalance: number, isActive: boolean): Promise<BankAccount>;
+    updateChequeStatus(id: bigint, status: string, remarks: string): Promise<ChequeEntry>;
+    updateEmployee(id: bigint, name: string, employeeCode: string, department: string, designation: string, dateOfJoining: string, pan: string, bankAccount: string, bankName: string, pfApplicable: boolean, esiApplicable: boolean, isActive: boolean): Promise<Employee>;
     updateHSNCode(id: bigint, code: string, description: string, gstRate: number): Promise<HSNCode>;
     updateLedger(ledgerId: bigint, name: string, groupId: bigint, openingBalance: number, balanceType: string): Promise<Ledger>;
-    // Phase 4: Inventory
-    createStockGroup(name: string, parentGroupId: bigint | null, unit: string): Promise<StockGroup>;
-    getAllStockGroups(): Promise<Array<StockGroup>>;
-    createStockItem(companyId: bigint, name: string, stockGroupId: bigint, unit: string, openingQty: number, openingRate: number, gstRate: number, hsnCode: string): Promise<StockItem>;
     updateStockItem(id: bigint, name: string, stockGroupId: bigint, unit: string, openingQty: number, openingRate: number, gstRate: number, hsnCode: string): Promise<StockItem>;
-    getAllStockItems(): Promise<Array<StockItem>>;
-    createStockVoucher(companyId: bigint, voucherType: string, voucherNumber: bigint, date: Time, narration: string, entries: Array<StockVoucherEntry>): Promise<{
-        voucherId: bigint;
-        voucher: StockVoucher;
-    }>;
-    getAllStockVouchers(companyId: bigint): Promise<Array<StockVoucher>>;
-    getStockSummary(companyId: bigint): Promise<Array<StockSummaryEntry>>;
-    getStockLedger(companyId: bigint, stockItemId: bigint): Promise<Array<StockLedgerEntry>>;
 }
