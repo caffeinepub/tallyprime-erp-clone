@@ -9,6 +9,8 @@ import Order "mo:core/Order";
 import Iter "mo:core/Iter";
 import Float "mo:core/Float";
 
+
+
 actor {
   type Company = {
     id : Nat;
@@ -18,6 +20,7 @@ actor {
     currency : Text;
     gstin : Text;
     address : Text;
+    owner : Text;
   };
 
   module Company {
@@ -567,7 +570,7 @@ actor {
   var extension : ?Extension = null;
 
   // PHASE 1 NON-GST FUNCTIONS
-  public shared ({ caller }) func createCompany(name : Text, financialYearStart : Text, financialYearEnd : Text, currency : Text, gstin : Text, address : Text) : async Company {
+  public shared ({ caller }) func createCompany(name : Text, financialYearStart : Text, financialYearEnd : Text, currency : Text, gstin : Text, address : Text, owner : Text) : async Company {
     let company : Company = {
       id = nextCompanyId;
       name;
@@ -576,10 +579,21 @@ actor {
       currency;
       gstin;
       address;
+      owner;
     };
     companies.add(nextCompanyId, company);
     nextCompanyId += 1;
     company;
+  };
+
+  public query ({ caller }) func getCompaniesForUser(username : Text) : async [Company] {
+    if (username == "admin") {
+      // Admin gets all companies
+      return companies.values().toArray().sort();
+    };
+
+    // Non-admin users get companies they own
+    companies.values().filter(func(c) { c.owner == username }).toArray().sort();
   };
 
   public query ({ caller }) func getAllCompanies() : async [Company] {

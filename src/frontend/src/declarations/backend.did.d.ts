@@ -58,6 +58,7 @@ export interface ChequeEntry {
 }
 export interface Company {
   'id' : bigint,
+  'owner' : string,
   'name' : string,
   'financialYearEnd' : string,
   'gstin' : string,
@@ -345,6 +346,14 @@ export interface TrialBalanceEntry {
   'debitTotal' : number,
   'ledgerName' : string,
 }
+export interface UserProfileData {
+  'username' : string,
+  'displayName' : string,
+  'themePreference' : string,
+  'email' : string,
+  'updatedAt' : Time,
+  'phone' : string,
+}
 export interface Voucher {
   'id' : bigint,
   'date' : Time,
@@ -379,7 +388,7 @@ export interface _SERVICE {
     ChequeEntry
   >,
   'createCompany' : ActorMethod<
-    [string, string, string, string, string, string],
+    [string, string, string, string, string, string, string],
     Company
   >,
   'createCostAllocation' : ActorMethod<
@@ -478,6 +487,7 @@ export interface _SERVICE {
   >,
   'getBankTransactions' : ActorMethod<[bigint, bigint], Array<BankTransaction>>,
   'getChequesByBankAccount' : ActorMethod<[bigint, bigint], Array<ChequeEntry>>,
+  'getCompaniesForUser' : ActorMethod<[string], Array<Company>>,
   'getCostCentreSummary' : ActorMethod<[bigint], Array<CostCentreSummaryEntry>>,
   'getDataSummary' : ActorMethod<
     [],
@@ -511,6 +521,7 @@ export interface _SERVICE {
     [bigint, bigint],
     Array<BankTransaction>
   >,
+  'getUserProfile' : ActorMethod<[string], [] | [UserProfileData]>,
   'initializePredefinedLedgerGroups' : ActorMethod<[], undefined>,
   'reconcileTransaction' : ActorMethod<
     [bigint, [] | [bigint], string],
@@ -537,6 +548,10 @@ export interface _SERVICE {
       number,
     ],
     SalaryStructure
+  >,
+  'saveUserProfile' : ActorMethod<
+    [string, string, string, string, string],
+    UserProfileData
   >,
   'setGSTSettings' : ActorMethod<[bigint, string, string, string], GSTSettings>,
   'unreconcileTransaction' : ActorMethod<[bigint], BankTransaction>,

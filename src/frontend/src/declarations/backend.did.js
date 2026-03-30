@@ -62,6 +62,7 @@ export const ChequeEntry = IDL.Record({
 });
 export const Company = IDL.Record({
   'id' : IDL.Nat,
+  'owner' : IDL.Text,
   'name' : IDL.Text,
   'financialYearEnd' : IDL.Text,
   'gstin' : IDL.Text,
@@ -357,6 +358,14 @@ export const TrialBalanceEntry = IDL.Record({
   'debitTotal' : IDL.Float64,
   'ledgerName' : IDL.Text,
 });
+export const UserProfileData = IDL.Record({
+  'username' : IDL.Text,
+  'displayName' : IDL.Text,
+  'themePreference' : IDL.Text,
+  'email' : IDL.Text,
+  'updatedAt' : Time,
+  'phone' : IDL.Text,
+});
 
 export const idlService = IDL.Service({
   'addExchangeRate' : IDL.Func(
@@ -412,7 +421,7 @@ export const idlService = IDL.Service({
       [],
     ),
   'createCompany' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
       [Company],
       [],
     ),
@@ -570,6 +579,7 @@ export const idlService = IDL.Service({
       [IDL.Vec(ChequeEntry)],
       ['query'],
     ),
+  'getCompaniesForUser' : IDL.Func([IDL.Text], [IDL.Vec(Company)], ['query']),
   'getCostCentreSummary' : IDL.Func(
       [IDL.Nat],
       [IDL.Vec(CostCentreSummaryEntry)],
@@ -644,6 +654,11 @@ export const idlService = IDL.Service({
       [IDL.Vec(BankTransaction)],
       ['query'],
     ),
+  'getUserProfile' : IDL.Func(
+      [IDL.Text],
+      [IDL.Opt(UserProfileData)],
+      ['query'],
+    ),
   'initializePredefinedLedgerGroups' : IDL.Func([], [], []),
   'reconcileTransaction' : IDL.Func(
       [IDL.Nat, IDL.Opt(IDL.Nat), IDL.Text],
@@ -672,6 +687,11 @@ export const idlService = IDL.Service({
         IDL.Float64,
       ],
       [SalaryStructure],
+      [],
+    ),
+  'saveUserProfile' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [UserProfileData],
       [],
     ),
   'setGSTSettings' : IDL.Func(
@@ -834,6 +854,7 @@ export const idlFactory = ({ IDL }) => {
   });
   const Company = IDL.Record({
     'id' : IDL.Nat,
+    'owner' : IDL.Text,
     'name' : IDL.Text,
     'financialYearEnd' : IDL.Text,
     'gstin' : IDL.Text,
@@ -1129,6 +1150,14 @@ export const idlFactory = ({ IDL }) => {
     'debitTotal' : IDL.Float64,
     'ledgerName' : IDL.Text,
   });
+  const UserProfileData = IDL.Record({
+    'username' : IDL.Text,
+    'displayName' : IDL.Text,
+    'themePreference' : IDL.Text,
+    'email' : IDL.Text,
+    'updatedAt' : Time,
+    'phone' : IDL.Text,
+  });
   
   return IDL.Service({
     'addExchangeRate' : IDL.Func(
@@ -1184,7 +1213,7 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'createCompany' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
         [Company],
         [],
       ),
@@ -1357,6 +1386,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(ChequeEntry)],
         ['query'],
       ),
+    'getCompaniesForUser' : IDL.Func([IDL.Text], [IDL.Vec(Company)], ['query']),
     'getCostCentreSummary' : IDL.Func(
         [IDL.Nat],
         [IDL.Vec(CostCentreSummaryEntry)],
@@ -1435,6 +1465,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(BankTransaction)],
         ['query'],
       ),
+    'getUserProfile' : IDL.Func(
+        [IDL.Text],
+        [IDL.Opt(UserProfileData)],
+        ['query'],
+      ),
     'initializePredefinedLedgerGroups' : IDL.Func([], [], []),
     'reconcileTransaction' : IDL.Func(
         [IDL.Nat, IDL.Opt(IDL.Nat), IDL.Text],
@@ -1463,6 +1498,11 @@ export const idlFactory = ({ IDL }) => {
           IDL.Float64,
         ],
         [SalaryStructure],
+        [],
+      ),
+    'saveUserProfile' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [UserProfileData],
         [],
       ),
     'setGSTSettings' : IDL.Func(

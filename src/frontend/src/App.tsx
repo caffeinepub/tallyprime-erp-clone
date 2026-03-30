@@ -6,6 +6,7 @@ import {
   BookOpen,
   Briefcase,
   Building2,
+  Calendar,
   Camera,
   ClipboardEdit,
   ClipboardList,
@@ -53,6 +54,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Company } from "./backend.d";
 import AIAnomalyDetector from "./components/AIAnomalyDetector";
 import AISettings from "./components/AISettings";
+import AdvancedAnalyticsDashboard from "./components/AdvancedAnalyticsDashboard";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
 import AssetRegister from "./components/AssetRegister";
 import AuditTrail from "./components/AuditTrail";
@@ -136,6 +138,10 @@ import VendorMaster from "./components/VendorMaster";
 import VoiceVoucherEntry from "./components/VoiceVoucherEntry";
 import VoucherEntry from "./components/VoucherEntry";
 import WhatsAppConfig from "./components/WhatsAppConfig";
+import AMCTracker from "./components/asset-maintenance/AMCTracker";
+import MaintenanceLog from "./components/asset-maintenance/MaintenanceLog";
+// Phase 35: Asset Maintenance
+import MaintenanceSchedule from "./components/asset-maintenance/MaintenanceSchedule";
 import BranchMaster from "./components/branches/BranchMaster";
 import BranchReports from "./components/branches/BranchReports";
 import BranchTransfer from "./components/branches/BranchTransfer";
@@ -178,6 +184,12 @@ import GSTFilingDashboard from "./components/gst-filing/GSTFilingDashboard";
 import GSTFilingHistory from "./components/gst-filing/GSTFilingHistory";
 import GSTR1Filing from "./components/gst-filing/GSTR1Filing";
 import GSTR3BFiling from "./components/gst-filing/GSTR3BFiling";
+import AttendanceRegister from "./components/hr/AttendanceRegister";
+// Phase 35: HR & Attendance
+import HRDashboard from "./components/hr/HRDashboard";
+import HREmployeeMaster from "./components/hr/HREmployeeMaster";
+import LeaveManagement from "./components/hr/LeaveManagement";
+import SalarySlip from "./components/hr/SalarySlip";
 import OfflineSync from "./components/offline/OfflineSync";
 import SyncHistory from "./components/offline/SyncHistory";
 // Phase 24: POS
@@ -191,6 +203,10 @@ import ServiceMaster from "./components/service/ServiceMaster";
 import ServiceOrders from "./components/service/ServiceOrders";
 import ServiceRegister from "./components/service/ServiceRegister";
 import ServiceTickets from "./components/service/ServiceTickets";
+// Phase 35: Subscriptions
+import RecurringTemplates from "./components/subscriptions/RecurringTemplates";
+import RenewalAlerts from "./components/subscriptions/RenewalAlerts";
+import SubscriptionRegister from "./components/subscriptions/SubscriptionRegister";
 // Phase 33: Tally Import
 import ImportWizard from "./components/tally-import/ImportWizard";
 import MigrationHistory from "./components/tally-import/MigrationHistory";
@@ -410,6 +426,20 @@ const NAV_ITEMS: NavItem[] = [
     key: "analyticsDashboard",
     label: "Business Insights",
     icon: BarChart3,
+    fkey: null,
+  },
+  // Phase 34: Advanced Analytics
+  {
+    key: "__header_adv_analytics",
+    label: "Advanced Analytics",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "advancedAnalytics",
+    label: "Premium Dashboard",
+    icon: TrendingUp,
     fkey: null,
   },
   // Phase 11: Advanced Reporting
@@ -1041,6 +1071,76 @@ const NAV_ITEMS: NavItem[] = [
     fkey: null,
   },
   { key: "customFields", label: "Custom Fields", icon: Settings, fkey: null },
+  // Phase 35: HR & Attendance
+  {
+    key: "__header_hr",
+    label: "HR & Attendance",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "hrDashboard", label: "HR Dashboard", icon: Users, fkey: null },
+  { key: "hrEmployees", label: "Employee Master", icon: UserPlus, fkey: null },
+  {
+    key: "hrAttendance",
+    label: "Attendance Register",
+    icon: Calendar,
+    fkey: null,
+  },
+  {
+    key: "hrLeaves",
+    label: "Leave Management",
+    icon: ClipboardList,
+    fkey: null,
+  },
+  { key: "hrSalarySlip", label: "Salary Slip", icon: FileText, fkey: null },
+  // Phase 35: Asset Maintenance
+  {
+    key: "__header_asset_maint",
+    label: "Asset Maintenance",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "maintenanceSchedule",
+    label: "Maintenance Schedule",
+    icon: ClipboardEdit,
+    fkey: null,
+  },
+  {
+    key: "maintenanceLog",
+    label: "Maintenance Log",
+    icon: ClipboardList,
+    fkey: null,
+  },
+  {
+    key: "amcTracker",
+    label: "AMC / Warranty Tracker",
+    icon: Shield,
+    fkey: null,
+  },
+  // Phase 35: Subscriptions
+  {
+    key: "__header_subscriptions",
+    label: "Subscription Billing",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "recurringTemplates",
+    label: "Recurring Templates",
+    icon: RefreshCw,
+    fkey: null,
+  },
+  {
+    key: "subscriptionRegister",
+    label: "Subscription Register",
+    icon: Receipt,
+    fkey: null,
+  },
+  { key: "renewalAlerts", label: "Renewal Alerts", icon: Bell, fkey: null },
 ];
 
 const VOUCHER_TYPE_MAP: Record<string, string> = {
@@ -1099,6 +1199,7 @@ const VIEW_LABELS: Record<string, string> = {
   rolePermissions: "Roles & Permissions",
   dataManagement: "Data Management",
   analyticsDashboard: "Business Insights",
+  advancedAnalytics: "Premium Dashboard",
   auditTrail: "Audit Trail",
   exportCenter: "Export Center",
   invoiceTemplates: "Invoice Templates",
@@ -1757,7 +1858,10 @@ export default function App() {
   if (view === "companySelect") {
     return (
       <div className="h-full bg-background" data-theme={theme}>
-        <CompanySelection onSelectCompany={handleSelectCompany} />
+        <CompanySelection
+          onSelectCompany={handleSelectCompany}
+          currentUser={currentUser}
+        />
         <Toaster />
       </div>
     );
@@ -1848,6 +1952,13 @@ export default function App() {
     if (view === "dataManagement") return <DataManagement />;
     if (view === "analyticsDashboard")
       return <AnalyticsDashboard company={activeCompany} />;
+    if (view === "advancedAnalytics")
+      return (
+        <AdvancedAnalyticsDashboard
+          currentUser={currentUser}
+          activeCompany={activeCompany}
+        />
+      );
     if (view === "auditTrail") return <AuditTrail currentUser={currentUser} />;
     if (view === "reportBuilder") return <ReportBuilder />;
     if (view === "scheduledReports") return <ScheduledReports />;
@@ -1975,6 +2086,20 @@ export default function App() {
     if (view === "field-permissions") return <FieldPermissions />;
     if (view === "password-policy") return <PasswordPolicy />;
     if (view === "contact-queries") return <ContactQueries />;
+    // Phase 35: HR & Attendance
+    if (view === "hrDashboard") return <HRDashboard />;
+    if (view === "hrEmployees") return <HREmployeeMaster />;
+    if (view === "hrAttendance") return <AttendanceRegister />;
+    if (view === "hrLeaves") return <LeaveManagement />;
+    if (view === "hrSalarySlip") return <SalarySlip />;
+    // Phase 35: Asset Maintenance
+    if (view === "maintenanceSchedule") return <MaintenanceSchedule />;
+    if (view === "maintenanceLog") return <MaintenanceLog />;
+    if (view === "amcTracker") return <AMCTracker />;
+    // Phase 35: Subscriptions
+    if (view === "recurringTemplates") return <RecurringTemplates />;
+    if (view === "subscriptionRegister") return <SubscriptionRegister />;
+    if (view === "renewalAlerts") return <RenewalAlerts />;
     if (view.startsWith("voucher")) {
       const vType = VOUCHER_TYPE_MAP[view] || "Journal";
       return (

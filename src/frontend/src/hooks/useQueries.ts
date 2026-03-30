@@ -93,6 +93,7 @@ export function useCreateCompany() {
       currency: string;
       gstin: string;
       address: string;
+      owner?: string;
     }) => {
       if (!actor) throw new Error("Not connected");
       return actor.createCompany(
@@ -102,12 +103,47 @@ export function useCreateCompany() {
         args.currency,
         args.gstin,
         args.address,
+        args.owner ?? "",
       );
     },
     onSuccess: (company) => {
       lsMergeCompany(company);
       qc.invalidateQueries({ queryKey: ["companies"] });
     },
+  });
+}
+
+export function useGetCompaniesForUser(username: string, isAdmin: boolean) {
+  const { actor, isFetching } = useActor();
+  return useQuery<Company[]>({
+    queryKey: ["companies", username, isAdmin],
+    queryFn: async () => {
+      let backendCompanies: Company[] = [];
+      if (actor) {
+        try {
+          if (isAdmin) {
+            backendCompanies = await actor.getAllCompanies();
+          } else {
+            backendCompanies = await actor.getCompaniesForUser(username);
+          }
+        } catch {
+          // backend unavailable, use localStorage
+        }
+      }
+      if (backendCompanies.length > 0) {
+        // For non-admin: only save their companies to localStorage
+        if (isAdmin) {
+          lsSaveCompanies(backendCompanies);
+        }
+        return backendCompanies;
+      }
+      const cached = lsGetCompanies();
+      if (isAdmin) return cached;
+      return cached.filter(
+        (c) => !c.owner || c.owner === username || c.owner === "",
+      );
+    },
+    enabled: !!actor && !isFetching && !!username,
   });
 }
 

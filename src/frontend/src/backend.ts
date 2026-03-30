@@ -294,6 +294,7 @@ export interface DepreciationEntry {
 }
 export interface Company {
     id: bigint;
+    owner: string;
     name: string;
     financialYearEnd: string;
     gstin: string;
@@ -370,6 +371,14 @@ export interface GSTVoucher {
     partyGSTIN: string;
     companyId: bigint;
 }
+export interface UserProfileData {
+    username: string;
+    displayName: string;
+    themePreference: string;
+    email: string;
+    updatedAt: Time;
+    phone: string;
+}
 export interface SalaryStructure {
     da: number;
     id: bigint;
@@ -384,16 +393,6 @@ export interface SalaryStructure {
     otherDeductions: number;
     conveyance: number;
     professionalTax: number;
-    companyId: bigint;
-}
-export interface CostAllocation {
-    id: bigint;
-    ledgerId: bigint;
-    date: Time;
-    narration: string;
-    costCentreId: bigint;
-    voucherId: bigint;
-    amount: number;
     companyId: bigint;
 }
 export interface CostCentre {
@@ -438,6 +437,16 @@ export interface Ledger {
     openingBalance: number;
     companyId: bigint;
 }
+export interface CostAllocation {
+    id: bigint;
+    ledgerId: bigint;
+    date: Time;
+    narration: string;
+    costCentreId: bigint;
+    voucherId: bigint;
+    amount: number;
+    companyId: bigint;
+}
 export interface backendInterface {
     addExchangeRate(currencyId: bigint, date: Time, rate: number, narration: string): Promise<ExchangeRateEntry>;
     addLedgerGroup(name: string, parentGroup: bigint | null, nature: string): Promise<LedgerGroup>;
@@ -445,7 +454,7 @@ export interface backendInterface {
     createBankAccount(companyId: bigint, accountName: string, accountNumber: string, ifscCode: string, bankName: string, branchName: string, linkedLedgerId: bigint, openingBalance: number): Promise<BankAccount>;
     createBankTransaction(companyId: bigint, bankAccountId: bigint, date: Time, description: string, amount: number, transactionType: string, voucherId: bigint | null): Promise<BankTransaction>;
     createChequeEntry(companyId: bigint, bankAccountId: bigint, chequeNumber: string, chequeDate: Time, amount: number, payeeName: string, chequeType: string, remarks: string): Promise<ChequeEntry>;
-    createCompany(name: string, financialYearStart: string, financialYearEnd: string, currency: string, gstin: string, address: string): Promise<Company>;
+    createCompany(name: string, financialYearStart: string, financialYearEnd: string, currency: string, gstin: string, address: string, owner: string): Promise<Company>;
     createCostAllocation(companyId: bigint, costCentreId: bigint, voucherId: bigint, ledgerId: bigint, amount: number, date: Time, narration: string): Promise<CostAllocation>;
     createCostCentre(companyId: bigint, name: string, parentCentreId: bigint | null, description: string): Promise<CostCentre>;
     createCurrency(code: string, symbol: string, name: string, exchangeRate: number, isBase: boolean): Promise<Currency>;
@@ -492,6 +501,7 @@ export interface backendInterface {
     getBankStatement(companyId: bigint, bankAccountId: bigint, fromDate: Time, toDate: Time): Promise<Array<BankTransaction>>;
     getBankTransactions(companyId: bigint, bankAccountId: bigint): Promise<Array<BankTransaction>>;
     getChequesByBankAccount(companyId: bigint, bankAccountId: bigint): Promise<Array<ChequeEntry>>;
+    getCompaniesForUser(username: string): Promise<Array<Company>>;
     getCostCentreSummary(companyId: bigint): Promise<Array<CostCentreSummaryEntry>>;
     getDataSummary(): Promise<{
         gstVouchers: bigint;
@@ -516,10 +526,12 @@ export interface backendInterface {
     getTaxLedgerBalances(companyId: bigint): Promise<Array<TaxLedgerBalance>>;
     getTrialBalance(companyId: bigint): Promise<Array<TrialBalanceEntry>>;
     getUnreconciledTransactions(companyId: bigint, bankAccountId: bigint): Promise<Array<BankTransaction>>;
+    getUserProfile(username: string): Promise<UserProfileData | null>;
     initializePredefinedLedgerGroups(): Promise<void>;
     reconcileTransaction(transactionId: bigint, voucherId: bigint | null, remarks: string): Promise<BankTransaction>;
     recordDepreciation(assetId: bigint, amount: number, date: Time, narration: string): Promise<DepreciationEntry>;
     saveSalaryStructure(companyId: bigint, employeeId: bigint, basic: number, hra: number, da: number, conveyance: number, specialAllowance: number, otherAllowances: number, pf: number, esi: number, tds: number, professionalTax: number, otherDeductions: number): Promise<SalaryStructure>;
+    saveUserProfile(username: string, displayName: string, email: string, phone: string, themePreference: string): Promise<UserProfileData>;
     setGSTSettings(companyId: bigint, registrationType: string, stateCode: string, stateName: string): Promise<GSTSettings>;
     unreconcileTransaction(transactionId: bigint): Promise<BankTransaction>;
     updateBankAccount(id: bigint, accountName: string, accountNumber: string, ifscCode: string, bankName: string, branchName: string, linkedLedgerId: bigint, openingBalance: number, isActive: boolean): Promise<BankAccount>;
@@ -535,7 +547,7 @@ export interface backendInterface {
     validateAllData(): Promise<Array<string>>;
     verifyUser(username: string, passwordHash: string): Promise<AppUser | null>;
 }
-import type { AppUser as _AppUser, BankTransaction as _BankTransaction, ChequeEntry as _ChequeEntry, CostCentre as _CostCentre, GSTSettings as _GSTSettings, GSTVoucher as _GSTVoucher, GSTVoucherEntry as _GSTVoucherEntry, LedgerGroup as _LedgerGroup, PayrollVoucher as _PayrollVoucher, SalaryStructure as _SalaryStructure, StockGroup as _StockGroup, StockVoucher as _StockVoucher, StockVoucherEntry as _StockVoucherEntry, Time as _Time } from "./declarations/backend.did.d.ts";
+import type { AppUser as _AppUser, BankTransaction as _BankTransaction, ChequeEntry as _ChequeEntry, CostCentre as _CostCentre, GSTSettings as _GSTSettings, GSTVoucher as _GSTVoucher, GSTVoucherEntry as _GSTVoucherEntry, LedgerGroup as _LedgerGroup, PayrollVoucher as _PayrollVoucher, SalaryStructure as _SalaryStructure, StockGroup as _StockGroup, StockVoucher as _StockVoucher, StockVoucherEntry as _StockVoucherEntry, Time as _Time, UserProfileData as _UserProfileData } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
     async addExchangeRate(arg0: bigint, arg1: Time, arg2: number, arg3: string): Promise<ExchangeRateEntry> {
@@ -622,17 +634,17 @@ export class Backend implements backendInterface {
             return from_candid_ChequeEntry_n8(this._uploadFile, this._downloadFile, result);
         }
     }
-    async createCompany(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string): Promise<Company> {
+    async createCompany(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: string): Promise<Company> {
         if (this.processError) {
             try {
-                const result = await this.actor.createCompany(arg0, arg1, arg2, arg3, arg4, arg5);
+                const result = await this.actor.createCompany(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.createCompany(arg0, arg1, arg2, arg3, arg4, arg5);
+            const result = await this.actor.createCompany(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
             return result;
         }
     }
@@ -1163,6 +1175,20 @@ export class Backend implements backendInterface {
             return from_candid_vec_n36(this._uploadFile, this._downloadFile, result);
         }
     }
+    async getCompaniesForUser(arg0: string): Promise<Array<Company>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getCompaniesForUser(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getCompaniesForUser(arg0);
+            return result;
+        }
+    }
     async getCostCentreSummary(arg0: bigint): Promise<Array<CostCentreSummaryEntry>> {
         if (this.processError) {
             try {
@@ -1395,6 +1421,20 @@ export class Backend implements backendInterface {
             return from_candid_vec_n43(this._uploadFile, this._downloadFile, result);
         }
     }
+    async getUserProfile(arg0: string): Promise<UserProfileData | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getUserProfile(arg0);
+                return from_candid_opt_n47(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getUserProfile(arg0);
+            return from_candid_opt_n47(this._uploadFile, this._downloadFile, result);
+        }
+    }
     async initializePredefinedLedgerGroups(): Promise<void> {
         if (this.processError) {
             try {
@@ -1448,6 +1488,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.saveSalaryStructure(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12);
+            return result;
+        }
+    }
+    async saveUserProfile(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string): Promise<UserProfileData> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.saveUserProfile(arg0, arg1, arg2, arg3, arg4);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.saveUserProfile(arg0, arg1, arg2, arg3, arg4);
             return result;
         }
     }
@@ -1637,14 +1691,14 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.verifyUser(arg0, arg1);
-                return from_candid_opt_n47(this._uploadFile, this._downloadFile, result);
+                return from_candid_opt_n48(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.verifyUser(arg0, arg1);
-            return from_candid_opt_n47(this._uploadFile, this._downloadFile, result);
+            return from_candid_opt_n48(this._uploadFile, this._downloadFile, result);
         }
     }
 }
@@ -1696,7 +1750,10 @@ function from_candid_opt_n45(_uploadFile: (file: ExternalBlob) => Promise<Uint8A
 function from_candid_opt_n46(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_SalaryStructure]): SalaryStructure | null {
     return value.length === 0 ? null : value[0];
 }
-function from_candid_opt_n47(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_AppUser]): AppUser | null {
+function from_candid_opt_n47(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_UserProfileData]): UserProfileData | null {
+    return value.length === 0 ? null : value[0];
+}
+function from_candid_opt_n48(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_AppUser]): AppUser | null {
     return value.length === 0 ? null : from_candid_AppUser_n34(_uploadFile, _downloadFile, value[0]);
 }
 function from_candid_opt_n7(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_Time]): Time | null {

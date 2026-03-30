@@ -1,26 +1,41 @@
-# HisabKitab Pro — Phase 33
+# HisabKitab Pro — Phase 35: HR & Attendance
 
 ## Current State
-Phase 32 is live with 84+ components covering all ERP features through Smart Compliance Engine, Rule Engine, Advanced Security, Collaboration, Event Ledger (basic), and Doc Intelligence. Backend is persistent Motoko actor.
+Phases 1–34 complete. App has accounting, GST, inventory, payroll, banking, reports, fixed assets, cost centres, multi-currency, RBAC, analytics, audit trail, advanced reporting, notifications, integrations, AI tools, voice, WhatsApp, budgeting, multi-company, project costing, portals, purchase/sales orders, compliance, CRM, POS, multi-branch, service management, collaboration, event ledger, doc intelligence, smart compliance engine, customization engine, Tally import, advanced analytics with premium widgets, isolated company per user.
 
 ## Requested Changes (Diff)
 
 ### Add
-- **Event Ledger Deep Enhancements**: Time-Travel Report (pick any date → rebuild Trial Balance from events), Undo/Redo Stack (visual panel with bulk undo/redo), Diff Viewer (compare two snapshots side-by-side with delta highlights)
-- **Tally Import** (new sidebar section): 4-step import wizard (upload XML/CSV → field mapping → preview with error rows → import with summary), Migration History table, Sample XML/CSV download
-- **Customization Engine** (new sidebar section): JSON Config Editor (save/reset/export/import), 3 Config Templates (Minimal/Full/GST-Only), Workflow Builder (trigger + multi-step actions + enable/disable), Custom Fields manager (Voucher/Ledger/Customer/Vendor)
+- **HR & Attendance** new sidebar section with:
+  - **Employee Master** — create/edit employees with name, employee code, department, designation, joining date, salary type (monthly/daily), basic salary, PAN, Aadhaar, bank account, contact info
+  - **Attendance Register** — daily/monthly attendance view, mark Present/Absent/Half-Day/Leave per employee per date, bulk mark attendance
+  - **Leave Management** — Leave types master (Casual, Sick, Earned, etc.), apply leave, approve/reject (admin/manager), leave balance per employee
+  - **Salary Slip Generator** — generate salary slip for selected employee and month, auto-calculate gross from basic + allowances - deductions, show PF/ESI/TDS deductions, print-ready slip
+  - **HR Dashboard** — headcount by department, attendance % chart, leave requests pending, salary disbursement status
+- **Asset Maintenance** new sidebar section with:
+  - **Maintenance Schedule** — create preventive/corrective maintenance tasks for assets with due dates, assigned technician
+  - **Maintenance Log** — record completed maintenance with date, cost, notes
+  - **AMC/Warranty Tracker** — track AMC/warranty expiry with alerts 30/60 days before expiry
+- **Subscription & Recurring Billing** new sidebar section with:
+  - **Recurring Invoice Templates** — create templates (customer, items, amount, frequency: monthly/quarterly/annual)
+  - **Subscription Register** — list active subscriptions with next due date, status
+  - **Renewal Alerts** — overdue and upcoming renewals with 7/30 day warnings
 
 ### Modify
-- Sidebar: Add "Tally Import" and "Customization Engine" sections
-- Event Ledger section: add Time-Travel Report, Undo Stack, Diff Viewer tabs
+- Sidebar: add HR & Attendance, Asset Maintenance, Subscription & Recurring Billing sections
+- Payroll section: link to HR Employee Master for employee data
 
 ### Remove
-- Nothing
+- Nothing removed
 
 ## Implementation Plan
-1. Create TimeTravelReport.tsx component in event-ledger folder
-2. Create UndoRedoStack.tsx component in event-ledger folder  
-3. Create DiffViewer.tsx component in event-ledger folder
-4. Create TallyImport folder with ImportWizard.tsx, MigrationHistory.tsx
-5. Create CustomizationEngine folder with JSONConfigEditor.tsx, WorkflowBuilder.tsx, CustomFields.tsx
-6. Wire all new components into App.tsx sidebar and routing
+1. Add HREmployee type and attendance/leave/salary data structures in frontend state (localStorage)
+2. Build EmployeeMaster CRUD component
+3. Build AttendanceRegister component with monthly grid view
+4. Build LeaveManagement component (types, apply, approve)
+5. Build SalarySlipGenerator with print layout
+6. Build HRDashboard with summary cards and charts
+7. Build AssetMaintenance screens (Schedule, Log, AMC Tracker)
+8. Build SubscriptionBilling screens (Templates, Register, Renewal Alerts)
+9. Wire all new sections into sidebar
+10. Validate and deploy

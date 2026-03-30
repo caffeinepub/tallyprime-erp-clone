@@ -3,16 +3,26 @@ import { useEffect, useState } from "react";
 import type { Company } from "../backend.d";
 import {
   useCreateCompany,
-  useGetAllCompanies,
+  useGetCompaniesForUser,
   useInitializeLedgerGroups,
 } from "../hooks/useQueries";
+import type { AppUser } from "../types/rbac";
 
 interface Props {
   onSelectCompany: (company: Company) => void;
+  currentUser: AppUser | null;
 }
 
-export default function CompanySelection({ onSelectCompany }: Props) {
-  const { data: companies, isLoading } = useGetAllCompanies();
+export default function CompanySelection({
+  onSelectCompany,
+  currentUser,
+}: Props) {
+  const isAdmin = currentUser?.role === "admin";
+  const username = currentUser?.username ?? "";
+  const { data: companies, isLoading } = useGetCompaniesForUser(
+    username,
+    isAdmin,
+  );
   const createCompany = useCreateCompany();
   const initGroups = useInitializeLedgerGroups();
   const [showForm, setShowForm] = useState(false);
@@ -66,7 +76,10 @@ export default function CompanySelection({ onSelectCompany }: Props) {
 
   const handleCreate = async () => {
     if (!form.name.trim()) return;
-    const company = await createCompany.mutateAsync(form);
+    const company = await createCompany.mutateAsync({
+      ...form,
+      owner: username,
+    });
     onSelectCompany(company);
   };
 
