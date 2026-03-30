@@ -14,10 +14,12 @@ import {
   LayoutDashboard,
   Lock,
   LogOut,
+  Menu,
   MessageCircle,
   Mic,
   Moon,
   PieChart,
+  QrCode,
   Receipt,
   Settings,
   Shield,
@@ -28,7 +30,9 @@ import {
   Truck,
   User,
   UserCheck,
+  UserPlus,
   Users,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Company } from "./backend.d";
@@ -106,6 +110,15 @@ import VendorMaster from "./components/VendorMaster";
 import VoiceVoucherEntry from "./components/VoiceVoucherEntry";
 import VoucherEntry from "./components/VoucherEntry";
 import WhatsAppConfig from "./components/WhatsAppConfig";
+import EInvoiceForm from "./components/compliance/EInvoiceForm";
+import EInvoiceList from "./components/compliance/EInvoiceList";
+// Phase 23: Compliance
+import EWayBillForm from "./components/compliance/EWayBillForm";
+import EWayBillList from "./components/compliance/EWayBillList";
+import FollowUpReminders from "./components/crm/FollowUpReminders";
+import LeadList from "./components/crm/LeadList";
+// Phase 23: CRM
+import LeadMaster from "./components/crm/LeadMaster";
 import type { AppUser } from "./types/rbac";
 import { logAuditEvent } from "./utils/auditLog";
 
@@ -403,7 +416,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: PieChart,
     fkey: null,
   },
-  // Phase 21: Customer/Vendor Portal
+  // Phase 21: Project Costing
   {
     key: "__header_project",
     label: "Project Costing",
@@ -482,6 +495,54 @@ const NAV_ITEMS: NavItem[] = [
   { key: "soList", label: "SO List", icon: ClipboardList, fkey: null },
   { key: "soDispatch", label: "SO Dispatch", icon: Truck, fkey: null },
   { key: "soRegister", label: "SO Register", icon: BarChart3, fkey: null },
+  // Phase 23: Compliance
+  {
+    key: "__header_compliance",
+    label: "Compliance",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "ewayBillForm",
+    label: "Generate e-Way Bill",
+    icon: Truck,
+    fkey: null,
+  },
+  {
+    key: "ewayBillList",
+    label: "e-Way Bill Register",
+    icon: ClipboardList,
+    fkey: null,
+  },
+  {
+    key: "eInvoiceForm",
+    label: "Generate E-Invoice",
+    icon: QrCode,
+    fkey: null,
+  },
+  {
+    key: "eInvoiceList",
+    label: "E-Invoice Register",
+    icon: FileText,
+    fkey: null,
+  },
+  // Phase 23: CRM
+  {
+    key: "__header_crm",
+    label: "CRM",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "leadMaster", label: "Create Lead", icon: UserPlus, fkey: null },
+  { key: "leadList", label: "Lead List", icon: Users, fkey: null },
+  {
+    key: "followUpReminders",
+    label: "Follow-up Reminders",
+    icon: Bell,
+    fkey: null,
+  },
   {
     key: "__header_reports",
     label: "Reports",
@@ -640,37 +701,29 @@ const VIEW_LABELS: Record<string, string> = {
   chequeRegister: "Cheque Register",
   bankReconciliation: "Bank Reconciliation",
   bankStatement: "Bank Statement",
-  // Phase 7
   fixedAssetMaster: "Fixed Asset Master",
   assetRegister: "Asset Register",
   costCentreMaster: "Cost Centres",
   costCentreSummary: "Cost Centre Summary",
   currencyMaster: "Currency Master",
   exchangeRates: "Exchange Rates",
-  // Phase 8
   userManagement: "User Management",
   rolePermissions: "Roles & Permissions",
-  // Phase 9
   dataManagement: "Data Management",
-  // Phase 10
   analyticsDashboard: "Business Insights",
   auditTrail: "Audit Trail",
-  // Phase 12
   exportCenter: "Export Center",
   invoiceTemplates: "Invoice Templates",
   paymentGateways: "Payment Gateways",
   bankingAPIs: "Banking API Config",
   invoiceDispatch: "Email/SMS Dispatch",
-  // Phase 13
   aiSettings: "AI Settings",
   aiAnomalyDetector: "AI Anomaly Detector",
   voiceEntry: "Voice Entry",
   whatsAppConfig: "WhatsApp Config",
-  // Phase 11
   reportBuilder: "Report Builder",
   scheduledReports: "Scheduled Reports",
   notifications: "Notification Center",
-  // Phase 20
   budgetMaster: "Budget Master",
   budgetVsActual: "Budget vs Actual",
   forecasting: "Forecasting Dashboard",
@@ -691,6 +744,14 @@ const VIEW_LABELS: Record<string, string> = {
   soList: "Sales Order List",
   soDispatch: "SO Dispatch",
   soRegister: "SO Register",
+  // Phase 23
+  ewayBillForm: "Generate e-Way Bill",
+  ewayBillList: "e-Way Bill Register",
+  eInvoiceForm: "Generate E-Invoice",
+  eInvoiceList: "E-Invoice Register",
+  leadMaster: "Create Lead",
+  leadList: "Lead List",
+  followUpReminders: "Follow-up Reminders",
 };
 
 // Role-based allowed nav keys
@@ -769,6 +830,13 @@ const ROLE_ALLOWED_KEYS: Record<string, Set<string>> = {
     "soList",
     "soDispatch",
     "soRegister",
+    "ewayBillForm",
+    "ewayBillList",
+    "eInvoiceForm",
+    "eInvoiceList",
+    "leadMaster",
+    "leadList",
+    "followUpReminders",
   ]),
   Auditor: new Set([
     "gateway",
@@ -796,6 +864,9 @@ const ROLE_ALLOWED_KEYS: Record<string, Set<string>> = {
     "poRegister",
     "soList",
     "soRegister",
+    "ewayBillList",
+    "eInvoiceList",
+    "leadList",
   ]),
   Viewer: new Set([
     "gateway",
@@ -817,6 +888,7 @@ const ROLE_ALLOWED_KEYS: Record<string, Set<string>> = {
     "projectPL",
     "customerLedger",
     "vendorLedger",
+    "leadList",
   ]),
 };
 
@@ -1014,6 +1086,8 @@ export default function App() {
   const [theme, setTheme] = useState<string>(() => {
     return localStorage.getItem("tally-theme") ?? "dark";
   });
+  // Mobile sidebar state
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const toggleTheme = useCallback(() => {
     setTheme((prev) => {
@@ -1026,6 +1100,7 @@ export default function App() {
   const navigate = useCallback((v: string) => {
     setView(v);
     setActiveNav(v);
+    setSidebarOpen(false); // close mobile sidebar on navigation
   }, []);
 
   const handleSelectCompany = (c: Company) => {
@@ -1138,7 +1213,6 @@ export default function App() {
     if (view === "plAccount") return <PLAccount company={activeCompany} />;
     if (view === "cashFlow")
       return <CashFlowStatement company={activeCompany} />;
-    // Phase 4: Inventory
     if (view === "stockGroups") return <StockGroups company={activeCompany} />;
     if (view === "stockItems") return <StockItems company={activeCompany} />;
     if (view === "stockReceipt")
@@ -1168,7 +1242,6 @@ export default function App() {
     if (view === "stockSummary")
       return <StockSummary company={activeCompany} />;
     if (view === "stockLedger") return <StockLedger company={activeCompany} />;
-    // Phase 5: Payroll
     if (view === "employeeMaster")
       return <EmployeeMaster company={activeCompany} />;
     if (view === "salaryStructure")
@@ -1178,7 +1251,6 @@ export default function App() {
     if (view === "payrollRegister")
       return <PayrollRegister company={activeCompany} />;
     if (view === "paySlip") return <PaySlip company={activeCompany} />;
-    // Phase 6: Banking
     if (view === "bankAccounts")
       return <BankAccounts company={activeCompany} />;
     if (view === "issueReceiveCheque")
@@ -1189,47 +1261,36 @@ export default function App() {
       return <BankReconciliation company={activeCompany} />;
     if (view === "bankStatement")
       return <BankStatement company={activeCompany} />;
-    // Phase 7: Fixed Assets
     if (view === "fixedAssetMaster")
       return <FixedAssetMaster company={activeCompany} />;
     if (view === "assetRegister")
       return <AssetRegister company={activeCompany} />;
-    // Phase 7: Cost Centres
     if (view === "costCentreMaster")
       return <CostCentreMaster company={activeCompany} />;
     if (view === "costCentreSummary")
       return <CostCentreSummary company={activeCompany} />;
-    // Phase 7: Multi-Currency
     if (view === "currencyMaster") return <CurrencyMaster />;
     if (view === "exchangeRates") return <ExchangeRates />;
-    // Phase 8: Security
     if (view === "userManagement") return <UserManagement />;
     if (view === "rolePermissions") return <RolePermissions />;
-    // Phase 9: Data Management
     if (view === "dataManagement") return <DataManagement />;
-    // Phase 10: Analytics & Audit Trail
     if (view === "analyticsDashboard")
       return <AnalyticsDashboard company={activeCompany} />;
     if (view === "auditTrail") return <AuditTrail currentUser={currentUser} />;
-    // Phase 11: Advanced Reporting & Notifications
     if (view === "reportBuilder") return <ReportBuilder />;
     if (view === "scheduledReports") return <ScheduledReports />;
     if (view === "notifications") return <NotificationCenter />;
-    // Phase 12: Printing & Export
     if (view === "exportCenter") return <ExportCenter />;
     if (view === "invoiceTemplates") return <InvoiceTemplates />;
-    // Phase 12: Integrations
     if (view === "paymentGateways") return <PaymentGatewayConfig />;
     if (view === "bankingAPIs") return <BankingAPIConfig />;
     if (view === "invoiceDispatch") return <InvoiceDispatch />;
-    // Phase 13: AI Tools + WhatsApp
     if (view === "aiSettings") return <AISettings />;
     if (view === "aiAnomalyDetector")
       return <AIAnomalyDetector company={activeCompany} />;
     if (view === "voiceEntry")
       return <VoiceVoucherEntry company={activeCompany} />;
     if (view === "whatsAppConfig") return <WhatsAppConfig />;
-    // Phase 20: Budgeting & Forecasting
     if (view === "budgetMaster")
       return <BudgetMaster company={activeCompany} />;
     if (view === "budgetVsActual")
@@ -1238,7 +1299,6 @@ export default function App() {
       return <ForecastingDashboard company={activeCompany} />;
     if (view === "consolidatedReports")
       return <ConsolidatedReports currentCompany={activeCompany} />;
-    // Phase 21
     if (view === "projectDashboard")
       return <ProjectDashboard company={activeCompany} />;
     if (view === "projectMaster")
@@ -1254,7 +1314,6 @@ export default function App() {
       return <VendorMaster company={activeCompany} />;
     if (view === "vendorLedger")
       return <VendorLedger company={activeCompany} />;
-    // Phase 22: Purchase Orders
     if (view === "poEntry")
       return <PurchaseOrderEntry company={activeCompany} />;
     if (view === "poList") return <PurchaseOrderList company={activeCompany} />;
@@ -1262,13 +1321,21 @@ export default function App() {
       return <PurchaseOrderReceipt company={activeCompany} />;
     if (view === "poRegister")
       return <PurchaseOrderRegister company={activeCompany} />;
-    // Phase 22: Sales Orders
     if (view === "soEntry") return <SalesOrderEntry company={activeCompany} />;
     if (view === "soList") return <SalesOrderList company={activeCompany} />;
     if (view === "soDispatch")
       return <SalesOrderDispatch company={activeCompany} />;
     if (view === "soRegister")
       return <SalesOrderRegister company={activeCompany} />;
+    // Phase 23: Compliance
+    if (view === "ewayBillForm") return <EWayBillForm />;
+    if (view === "ewayBillList") return <EWayBillList />;
+    if (view === "eInvoiceForm") return <EInvoiceForm />;
+    if (view === "eInvoiceList") return <EInvoiceList />;
+    // Phase 23: CRM
+    if (view === "leadMaster") return <LeadMaster />;
+    if (view === "leadList") return <LeadList />;
+    if (view === "followUpReminders") return <FollowUpReminders />;
     if (view.startsWith("voucher")) {
       const vType = VOUCHER_TYPE_MAP[view] || "Journal";
       return (
@@ -1278,41 +1345,102 @@ export default function App() {
     return <GatewayHome company={activeCompany} onNavigate={navigate} />;
   };
 
+  // Sidebar content — shared between desktop and mobile overlay
+  const sidebarContent = (
+    <>
+      <div className="px-3 py-2 border-b border-sidebar-border bg-sidebar">
+        <div className="text-[10px] text-sidebar-muted uppercase tracking-wide">
+          Current Period
+        </div>
+        <div className="text-[11px] text-sidebar-foreground font-medium mt-0.5">
+          {activeCompany?.financialYearStart} –{" "}
+          {activeCompany?.financialYearEnd}
+        </div>
+      </div>
+      <nav className="flex-1 py-2 overflow-y-auto">
+        {filteredNavItems.map((item, i) => {
+          if (item.isHeader) {
+            return (
+              // biome-ignore lint/suspicious/noArrayIndexKey: static nav headers
+              <div key={i} className="tally-section-header">
+                {item.label}
+              </div>
+            );
+          }
+          if (item.key.startsWith("__")) return null;
+          const Icon = item.icon;
+          const isActive = activeNav === item.key;
+          return (
+            <button
+              type="button"
+              // biome-ignore lint/suspicious/noArrayIndexKey: static nav items
+              key={i}
+              data-ocid={`nav.${item.label.toLowerCase().replace(/[^a-z0-9]/g, "_")}.link`}
+              className={`tally-menu-item w-full ${isActive ? "active" : ""}`}
+              onClick={() => navigate(item.key)}
+            >
+              {Icon && <Icon size={12} className="flex-shrink-0" />}
+              <span className="flex-1 truncate text-left">{item.label}</span>
+              {item.fkey && (
+                <span className="tally-key-badge">{item.fkey}</span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
+    </>
+  );
+
   return (
-    <div
-      className="h-full flex flex-col bg-background min-w-[1024px]"
-      data-theme={theme}
-    >
+    <div className="h-full flex flex-col bg-background" data-theme={theme}>
       {/* TOP BAR */}
-      <header className="h-14 flex items-center px-4 gap-4 bg-topbar border-b border-border flex-shrink-0">
+      <header className="h-14 flex items-center px-3 gap-2 bg-topbar border-b border-border flex-shrink-0">
+        {/* Hamburger — mobile/tablet only */}
+        <button
+          type="button"
+          data-ocid="app.sidebar.open_modal_button"
+          className="lg:hidden w-9 h-9 flex items-center justify-center rounded-sm hover:bg-secondary/60 transition-colors flex-shrink-0"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Open menu"
+        >
+          <Menu size={20} className="text-foreground" />
+        </button>
+
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-teal flex items-center justify-center rounded-sm">
+          <div className="w-8 h-8 bg-teal flex items-center justify-center rounded-sm flex-shrink-0">
             <span className="text-primary-foreground font-bold text-sm">H</span>
           </div>
-          <span className="text-[15px] font-bold text-foreground tracking-tight">
+          <span className="text-[15px] font-bold text-foreground tracking-tight hidden sm:inline">
             HisabKitab Pro
           </span>
+          <span className="text-[15px] font-bold text-foreground tracking-tight sm:hidden">
+            HKPro
+          </span>
           <span className="text-[10px] text-muted-foreground font-mono ml-1">
-            v22.0
+            v23.0
           </span>
         </div>
 
         <div className="h-6 w-px bg-border" />
 
-        <div className="flex items-center gap-2 flex-1">
-          <Building2 size={13} className="text-teal" />
-          <span className="text-[12px] text-muted-foreground">Company:</span>
-          <span className="text-[12px] font-semibold text-foreground">
+        <div className="hidden md:flex items-center gap-2 flex-1 min-w-0">
+          <Building2 size={13} className="text-teal flex-shrink-0" />
+          <span className="text-[12px] text-muted-foreground flex-shrink-0">
+            Company:
+          </span>
+          <span className="text-[12px] font-semibold text-foreground truncate">
             {activeCompany?.name}
           </span>
           {activeCompany && (
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-[10px] text-muted-foreground flex-shrink-0">
               (FY {activeCompany.financialYearStart})
             </span>
           )}
         </div>
 
-        <div className="text-[11px] text-muted-foreground border border-border/60 px-2 py-1 bg-secondary/30">
+        <div className="flex-1" />
+
+        <div className="hidden sm:block text-[11px] text-muted-foreground border border-border/60 px-2 py-1 bg-secondary/30 truncate max-w-[160px]">
           {VIEW_LABELS[view] || view}
         </div>
 
@@ -1320,7 +1448,7 @@ export default function App() {
           type="button"
           data-ocid="app.company.button"
           onClick={() => navigate("companySelect")}
-          className="text-[11px] font-medium px-3 py-1 bg-teal/20 border border-teal/40 text-teal hover:bg-teal/30 transition-colors"
+          className="hidden sm:block text-[11px] font-medium px-3 py-1 bg-teal/20 border border-teal/40 text-teal hover:bg-teal/30 transition-colors flex-shrink-0"
         >
           F3: Company
         </button>
@@ -1338,58 +1466,60 @@ export default function App() {
       </header>
 
       {/* BODY */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* SIDEBAR */}
-        <aside className="w-60 flex-shrink-0 bg-sidebar border-r border-sidebar-border flex flex-col overflow-y-auto">
-          <div className="px-3 py-2 border-b border-sidebar-border bg-sidebar">
-            <div className="text-[10px] text-sidebar-muted uppercase tracking-wide">
-              Current Period
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Mobile sidebar overlay backdrop */}
+        {sidebarOpen && (
+          <button
+            type="button"
+            aria-label="Close menu"
+            data-ocid="app.sidebar.modal"
+            className="fixed inset-0 bg-black/60 z-40 lg:hidden cursor-default"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* SIDEBAR — desktop: always visible; mobile: overlay slide-in */}
+        <aside
+          className={[
+            "bg-sidebar border-r border-sidebar-border flex flex-col",
+            // Desktop: static in layout
+            "lg:relative lg:w-60 lg:flex-shrink-0 lg:translate-x-0 lg:z-auto",
+            // Mobile: fixed overlay
+            "fixed top-0 left-0 h-full w-72 z-50 transition-transform duration-200",
+            sidebarOpen
+              ? "translate-x-0"
+              : "-translate-x-full lg:translate-x-0",
+          ].join(" ")}
+        >
+          {/* Mobile sidebar header with close button */}
+          <div className="lg:hidden flex items-center justify-between px-3 h-14 border-b border-sidebar-border flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 bg-teal flex items-center justify-center rounded-sm">
+                <span className="text-primary-foreground font-bold text-xs">
+                  H
+                </span>
+              </div>
+              <span className="text-[13px] font-bold text-foreground">
+                HisabKitab Pro
+              </span>
             </div>
-            <div className="text-[11px] text-sidebar-foreground font-medium mt-0.5">
-              {activeCompany?.financialYearStart} –{" "}
-              {activeCompany?.financialYearEnd}
-            </div>
+            <button
+              type="button"
+              data-ocid="app.sidebar.close_button"
+              onClick={() => setSidebarOpen(false)}
+              className="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-secondary/60 transition-colors"
+            >
+              <X size={16} className="text-foreground" />
+            </button>
           </div>
 
-          <nav className="flex-1 py-2">
-            {filteredNavItems.map((item, i) => {
-              if (item.isHeader) {
-                return (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: static nav headers
-                  <div key={i} className="tally-section-header">
-                    {item.label}
-                  </div>
-                );
-              }
-              if (item.key.startsWith("__")) return null;
-              const Icon = item.icon;
-              const isActive = activeNav === item.key;
-              return (
-                <button
-                  type="button"
-                  // biome-ignore lint/suspicious/noArrayIndexKey: static nav items
-                  key={i}
-                  data-ocid={`nav.${item.label.toLowerCase().replace(/[^a-z0-9]/g, "_")}.link`}
-                  className={`tally-menu-item w-full ${isActive ? "active" : ""}`}
-                  onClick={() => navigate(item.key)}
-                >
-                  {Icon && <Icon size={12} className="flex-shrink-0" />}
-                  <span className="flex-1 truncate text-left">
-                    {item.label}
-                  </span>
-                  {item.fkey && (
-                    <span className="tally-key-badge">{item.fkey}</span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
+          {sidebarContent}
         </aside>
 
         {/* MAIN CONTENT */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Command Strip */}
-          <div className="h-9 flex items-center gap-1 px-3 border-b border-border bg-card flex-shrink-0">
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          {/* Command Strip — hidden on small screens */}
+          <div className="hidden lg:flex h-9 items-center gap-1 px-3 border-b border-border bg-card flex-shrink-0">
             {["G: Go To", "G: Print", "E: Export", "M: E-Mail", "H: Help"].map(
               (label) => (
                 <button type="button" key={label} className="cmd-btn">
@@ -1409,16 +1539,14 @@ export default function App() {
           </div>
 
           {/* Content Area */}
-          <main className="flex-1 overflow-hidden relative">
-            {renderMain()}
-          </main>
+          <main className="flex-1 overflow-auto relative">{renderMain()}</main>
 
           {/* BOTTOM STATUS BAR */}
           <footer className="h-8 flex items-center px-4 gap-6 border-t border-border bg-secondary/30 flex-shrink-0">
             <span className="text-[10px] font-mono text-muted-foreground">
-              Ver. 22.0
+              Ver. 23.0
             </span>
-            <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
+            <div className="hidden md:flex items-center gap-4 text-[10px] text-muted-foreground">
               {[
                 { key: "F1", label: "Help" },
                 { key: "F2", label: "Date" },
@@ -1435,11 +1563,11 @@ export default function App() {
             <div className="flex-1" />
             {currentUser && (
               <span className="text-[10px] text-muted-foreground/60">
-                Logged in as{" "}
+                <span className="hidden sm:inline">Logged in as </span>
                 <span className="text-teal/70 font-medium">
                   {currentUser.username}
                 </span>{" "}
-                ({currentUser.role})
+                <span className="hidden sm:inline">({currentUser.role})</span>
               </span>
             )}
           </footer>
