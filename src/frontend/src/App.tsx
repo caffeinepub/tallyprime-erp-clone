@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import {
   AlertCircle,
+  BarChart2,
   BarChart3,
   Bell,
   BookOpen,
@@ -8,6 +9,7 @@ import {
   Building2,
   Calendar,
   Camera,
+  ChevronDown,
   ClipboardEdit,
   ClipboardList,
   Clock,
@@ -35,9 +37,11 @@ import {
   Receipt,
   RefreshCw,
   ScanLine,
+  Search,
   Settings,
   Shield,
   ShoppingCart,
+  Smartphone,
   Sun,
   Target,
   TrendingUp,
@@ -138,6 +142,17 @@ import VendorMaster from "./components/VendorMaster";
 import VoiceVoucherEntry from "./components/VoiceVoucherEntry";
 import VoucherEntry from "./components/VoucherEntry";
 import WhatsAppConfig from "./components/WhatsAppConfig";
+import CashFlowForecast from "./components/advanced-analytics/CashFlowForecast";
+// Phase 36: Advanced Analytics Drill-Down
+import DrillDownExplorer from "./components/advanced-analytics/DrillDownExplorer";
+import ExpenseBreakdown from "./components/advanced-analytics/ExpenseBreakdown";
+import PLTrend from "./components/advanced-analytics/PLTrend";
+import AutoReconciliation from "./components/advanced-banking/AutoReconciliation";
+import BRSReport from "./components/advanced-banking/BRSReport";
+// Phase 36: Advanced Banking
+import BankStatementImport from "./components/advanced-banking/BankStatementImport";
+import ChequeRegisterAdv from "./components/advanced-banking/ChequeRegisterAdv";
+import UPITracker from "./components/advanced-banking/UPITracker";
 import AMCTracker from "./components/asset-maintenance/AMCTracker";
 import MaintenanceLog from "./components/asset-maintenance/MaintenanceLog";
 // Phase 35: Asset Maintenance
@@ -442,6 +457,25 @@ const NAV_ITEMS: NavItem[] = [
     icon: TrendingUp,
     fkey: null,
   },
+  {
+    key: "drillDownExplorer",
+    label: "Drill-Down Explorer",
+    icon: Search,
+    fkey: null,
+  },
+  {
+    key: "cashFlowForecast",
+    label: "Cash Flow Forecast",
+    icon: TrendingUp,
+    fkey: null,
+  },
+  {
+    key: "expenseBreakdown",
+    label: "Expense Breakdown",
+    icon: PieChart,
+    fkey: null,
+  },
+  { key: "plTrend", label: "P&L Trend", icon: BarChart2, fkey: null },
   // Phase 11: Advanced Reporting
   {
     key: "__header_adv_reports",
@@ -1120,6 +1154,34 @@ const NAV_ITEMS: NavItem[] = [
     icon: Shield,
     fkey: null,
   },
+  // Phase 36: Advanced Banking
+  {
+    key: "__header_adv_banking",
+    label: "Advanced Banking",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "bankStatementImport",
+    label: "Statement Import",
+    icon: Upload,
+    fkey: null,
+  },
+  {
+    key: "autoReconciliation",
+    label: "Auto Reconciliation",
+    icon: RefreshCw,
+    fkey: null,
+  },
+  { key: "upiTracker", label: "UPI Tracker", icon: Smartphone, fkey: null },
+  {
+    key: "chequeRegisterAdv",
+    label: "Cheque Register",
+    icon: FileText,
+    fkey: null,
+  },
+  { key: "brsReport", label: "BRS Report", icon: BarChart2, fkey: null },
   // Phase 35: Subscriptions
   {
     key: "__header_subscriptions",
@@ -1678,6 +1740,22 @@ export default function App() {
   });
   // Mobile sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<
+    Record<string, boolean>
+  >(() => {
+    try {
+      return JSON.parse(localStorage.getItem("hk_sidebar_collapsed") || "{}");
+    } catch {
+      return {};
+    }
+  });
+  const toggleSection = (key: string) => {
+    setCollapsedSections((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      localStorage.setItem("hk_sidebar_collapsed", JSON.stringify(next));
+      return next;
+    });
+  };
   // Phase 26: GoTo/Help modals
   const [goToOpen, setGoToOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -2100,6 +2178,17 @@ export default function App() {
     if (view === "recurringTemplates") return <RecurringTemplates />;
     if (view === "subscriptionRegister") return <SubscriptionRegister />;
     if (view === "renewalAlerts") return <RenewalAlerts />;
+    // Phase 36: Advanced Banking
+    if (view === "bankStatementImport") return <BankStatementImport />;
+    if (view === "autoReconciliation") return <AutoReconciliation />;
+    if (view === "upiTracker") return <UPITracker />;
+    if (view === "chequeRegisterAdv") return <ChequeRegisterAdv />;
+    if (view === "brsReport") return <BRSReport />;
+    // Phase 36: Advanced Analytics Drill-Down
+    if (view === "drillDownExplorer") return <DrillDownExplorer />;
+    if (view === "cashFlowForecast") return <CashFlowForecast />;
+    if (view === "expenseBreakdown") return <ExpenseBreakdown />;
+    if (view === "plTrend") return <PLTrend />;
     if (view.startsWith("voucher")) {
       const vType = VOUCHER_TYPE_MAP[view] || "Journal";
       return (
@@ -2122,42 +2211,58 @@ export default function App() {
         </div>
       </div>
       <nav className="flex-1 py-2 overflow-y-auto">
-        {filteredNavItems.map((item, i) => {
-          if (item.isHeader) {
+        {(() => {
+          let currentHeaderKey = "";
+          return filteredNavItems.map((item, i) => {
+            if (item.isHeader) {
+              currentHeaderKey = item.key;
+              const isCollapsed = collapsedSections[item.key] ?? false;
+              return (
+                <button
+                  type="button"
+                  key={`hdr_${item.label}`}
+                  className="tally-section-header flex items-center gap-1.5 relative pl-3 cursor-pointer select-none hover:opacity-80 transition-opacity"
+                  onClick={() => toggleSection(item.key)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ")
+                      toggleSection(item.key);
+                  }}
+                >
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-3 bg-teal/60 rounded-r-sm" />
+                  <span className="flex-1">{item.label}</span>
+                  <ChevronDown
+                    size={11}
+                    className={`mr-2 text-muted-foreground transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""}`}
+                  />
+                </button>
+              );
+            }
+            if (item.key.startsWith("__")) return null;
+            if (collapsedSections[currentHeaderKey]) return null;
+            const Icon = item.icon;
+            const isActive = activeNav === item.key;
             return (
-              <div
-                key={`hdr_${item.label}`}
-                className="tally-section-header flex items-center gap-1.5 relative pl-3"
+              <button
+                type="button"
+                key={`nav_${item.key}_${i}`}
+                data-ocid={`nav.${item.label.toLowerCase().replace(/[^a-z0-9]/g, "_")}.link`}
+                className={`tally-menu-item w-full relative ${isActive ? "active border-l-2 border-teal" : "border-l-2 border-transparent"}`}
+                onClick={() => navigate(item.key)}
               >
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-3 bg-teal/60 rounded-r-sm" />
-                {item.label}
-              </div>
+                {Icon && (
+                  <Icon
+                    size={12}
+                    className={`flex-shrink-0 ${isActive ? "text-teal" : ""}`}
+                  />
+                )}
+                <span className="flex-1 truncate text-left">{item.label}</span>
+                {item.fkey && (
+                  <span className="tally-key-badge">{item.fkey}</span>
+                )}
+              </button>
             );
-          }
-          if (item.key.startsWith("__")) return null;
-          const Icon = item.icon;
-          const isActive = activeNav === item.key;
-          return (
-            <button
-              type="button"
-              key={`nav_${item.key}_${i}`}
-              data-ocid={`nav.${item.label.toLowerCase().replace(/[^a-z0-9]/g, "_")}.link`}
-              className={`tally-menu-item w-full relative ${isActive ? "active border-l-2 border-teal" : "border-l-2 border-transparent"}`}
-              onClick={() => navigate(item.key)}
-            >
-              {Icon && (
-                <Icon
-                  size={12}
-                  className={`flex-shrink-0 ${isActive ? "text-teal" : ""}`}
-                />
-              )}
-              <span className="flex-1 truncate text-left">{item.label}</span>
-              {item.fkey && (
-                <span className="tally-key-badge">{item.fkey}</span>
-              )}
-            </button>
-          );
-        })}
+          });
+        })()}
       </nav>
     </>
   );

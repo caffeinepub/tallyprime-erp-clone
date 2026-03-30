@@ -1,41 +1,33 @@
-# HisabKitab Pro — Phase 35: HR & Attendance
+# HisabKitab Pro — Phase 36
 
 ## Current State
-Phases 1–34 complete. App has accounting, GST, inventory, payroll, banking, reports, fixed assets, cost centres, multi-currency, RBAC, analytics, audit trail, advanced reporting, notifications, integrations, AI tools, voice, WhatsApp, budgeting, multi-company, project costing, portals, purchase/sales orders, compliance, CRM, POS, multi-branch, service management, collaboration, event ledger, doc intelligence, smart compliance engine, customization engine, Tally import, advanced analytics with premium widgets, isolated company per user.
+v35.0 live with HR & Attendance, Asset Maintenance, Subscription & Recurring Billing, and all prior 35 phases intact.
 
 ## Requested Changes (Diff)
 
 ### Add
-- **HR & Attendance** new sidebar section with:
-  - **Employee Master** — create/edit employees with name, employee code, department, designation, joining date, salary type (monthly/daily), basic salary, PAN, Aadhaar, bank account, contact info
-  - **Attendance Register** — daily/monthly attendance view, mark Present/Absent/Half-Day/Leave per employee per date, bulk mark attendance
-  - **Leave Management** — Leave types master (Casual, Sick, Earned, etc.), apply leave, approve/reject (admin/manager), leave balance per employee
-  - **Salary Slip Generator** — generate salary slip for selected employee and month, auto-calculate gross from basic + allowances - deductions, show PF/ESI/TDS deductions, print-ready slip
-  - **HR Dashboard** — headcount by department, attendance % chart, leave requests pending, salary disbursement status
-- **Asset Maintenance** new sidebar section with:
-  - **Maintenance Schedule** — create preventive/corrective maintenance tasks for assets with due dates, assigned technician
-  - **Maintenance Log** — record completed maintenance with date, cost, notes
-  - **AMC/Warranty Tracker** — track AMC/warranty expiry with alerts 30/60 days before expiry
-- **Subscription & Recurring Billing** new sidebar section with:
-  - **Recurring Invoice Templates** — create templates (customer, items, amount, frequency: monthly/quarterly/annual)
-  - **Subscription Register** — list active subscriptions with next due date, status
-  - **Renewal Alerts** — overdue and upcoming renewals with 7/30 day warnings
+- **Advanced Banking** sidebar section:
+  - Bank Statement Import (CSV upload, column mapping, preview, import)
+  - Auto-Reconciliation (match imported transactions vs vouchers, manual match, unmatched list)
+  - UPI Collection Tracker (UPI payments log, reconcile status)
+  - Outstanding Cheque Register (issued/deposited cheques, clearance tracking)
+  - Bank Reconciliation Statement (BRS report — book balance vs bank balance)
+- **Advanced Analytics** sidebar section (drill-down):
+  - Analytics Dashboard (KPI cards, revenue/expense trend charts)
+  - Drill-Down Explorer (click ledger group → sub-group → individual vouchers)
+  - Cash Flow Forecast (30/60/90-day projection with trend line)
+  - Expense Breakdown (category-wise pie/bar)
+  - Profit & Loss Trend (monthly P&L comparison chart)
 
 ### Modify
-- Sidebar: add HR & Attendance, Asset Maintenance, Subscription & Recurring Billing sections
-- Payroll section: link to HR Employee Master for employee data
+- Sidebar: add "Advanced Banking" and "Advanced Analytics" sections
 
 ### Remove
-- Nothing removed
+- Nothing
 
 ## Implementation Plan
-1. Add HREmployee type and attendance/leave/salary data structures in frontend state (localStorage)
-2. Build EmployeeMaster CRUD component
-3. Build AttendanceRegister component with monthly grid view
-4. Build LeaveManagement component (types, apply, approve)
-5. Build SalarySlipGenerator with print layout
-6. Build HRDashboard with summary cards and charts
-7. Build AssetMaintenance screens (Schedule, Log, AMC Tracker)
-8. Build SubscriptionBilling screens (Templates, Register, Renewal Alerts)
-9. Wire all new sections into sidebar
-10. Validate and deploy
+1. Add AdvancedBanking component (5 sub-screens: Import, Reconciliation, UPI Tracker, Cheque Register, BRS)
+2. Add AdvancedAnalytics component (5 sub-screens: Dashboard, Drill-Down, Cash Flow Forecast, Expense Breakdown, P&L Trend)
+3. Wire both into sidebar under new sections
+4. All data stored in localStorage; no backend changes needed
+5. Charts use inline SVG / simple canvas — no new chart library imports
