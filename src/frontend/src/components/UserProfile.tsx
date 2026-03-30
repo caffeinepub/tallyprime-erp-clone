@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Camera, Lock, Save } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useActor } from "../hooks/useActor";
 
 interface ProfileData {
   displayName: string;
@@ -37,6 +38,7 @@ function loadProfile(): ProfileData {
 }
 
 export default function UserProfile() {
+  const { actor } = useActor();
   const [profile, setProfile] = useState<ProfileData>(loadProfile);
   const [photo, setPhoto] = useState<string | null>(() =>
     localStorage.getItem(PHOTO_KEY),
@@ -49,7 +51,31 @@ export default function UserProfile() {
   useEffect(() => {
     setProfile(loadProfile());
     setPhoto(localStorage.getItem(PHOTO_KEY));
-  }, []);
+    // Load from backend
+    const loadFromBackend = async () => {
+      try {
+        const currentUserRaw = localStorage.getItem("hisabkitab_current_user");
+        const cu = currentUserRaw
+          ? (JSON.parse(currentUserRaw) as { username: string })
+          : null;
+        if (cu && actor) {
+          const result = await (actor as any).getUserProfile(cu.username);
+          if (result && result.length > 0) {
+            const p = result[0];
+            setProfile((prev) => ({
+              ...prev,
+              displayName: p.displayName || prev.displayName,
+              email: p.email || prev.email,
+              phone: p.phone || prev.phone,
+            }));
+          }
+        }
+      } catch {
+        /* fallback to localStorage */
+      }
+    };
+    loadFromBackend();
+  }, [actor]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -64,8 +90,25 @@ export default function UserProfile() {
     reader.readAsDataURL(file);
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+    try {
+      const currentUserRaw = localStorage.getItem("hisabkitab_current_user");
+      const cu = currentUserRaw
+        ? (JSON.parse(currentUserRaw) as { username: string })
+        : null;
+      if (cu && actor) {
+        await (actor as any).saveUserProfile(
+          cu.username,
+          profile.displayName,
+          profile.email,
+          profile.phone,
+          localStorage.getItem("hisabkitab_theme") ?? "Default Blue",
+        );
+      }
+    } catch {
+      /* fallback to localStorage */
+    }
     toast.success("Profile saved successfully!");
   };
 

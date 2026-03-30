@@ -1906,4 +1906,39 @@ actor {
       bankAccounts = bankAccounts.size();
     }
   };
+  // PHASE 28: User Profile Storage
+  type UserProfileData = {
+    username : Text;
+    displayName : Text;
+    email : Text;
+    phone : Text;
+    themePreference : Text;
+    updatedAt : Time.Time;
+  };
+
+  let userProfiles = Map.empty<Text, UserProfileData>();
+
+  public shared ({ caller }) func saveUserProfile(
+    username : Text,
+    displayName : Text,
+    email : Text,
+    phone : Text,
+    themePreference : Text
+  ) : async UserProfileData {
+    let profile : UserProfileData = {
+      username;
+      displayName;
+      email;
+      phone;
+      themePreference;
+      updatedAt = Time.now();
+    };
+    userProfiles.add(username, profile);
+    profile
+  };
+
+  public query ({ caller }) func getUserProfile(username : Text) : async ?UserProfileData {
+    userProfiles.get(username)
+  };
+
 };

@@ -140,3 +140,11 @@
     color: oklch(var(--numeric));
   }
 }
+
+/* Phase 29: Desktop sidebar 15vw */
+@media (min-width: 1024px) {
+  .desktop-sidebar {
+    width: 15vw !important;
+    min-width: 15vw !important;
+  }
+}

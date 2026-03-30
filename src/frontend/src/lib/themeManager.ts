@@ -122,6 +122,7 @@ export function applyTheme(themeName: string): void {
   root.style.setProperty("--teal-bright", theme.accentOklch);
   root.style.setProperty("--accent", theme.accentOklch);
   root.style.setProperty("--ring", theme.accentOklch);
+  root.style.setProperty("--primary", theme.primaryOklch);
 
   localStorage.setItem(THEME_KEY, themeName);
 }

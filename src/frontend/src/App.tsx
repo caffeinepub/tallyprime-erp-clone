@@ -9,6 +9,7 @@ import {
   Database,
   DollarSign,
   FileText,
+  Keyboard,
   Landmark,
   Layers,
   LayoutDashboard,
@@ -16,6 +17,7 @@ import {
   LogOut,
   Menu,
   MessageCircle,
+  MessageSquare,
   Mic,
   Moon,
   PieChart,
@@ -59,6 +61,7 @@ import ConsolidatedReports from "./components/ConsolidatedReports";
 import CostCentreMaster from "./components/CostCentreMaster";
 import CostCentreSummary from "./components/CostCentreSummary";
 import CurrencyMaster from "./components/CurrencyMaster";
+import CustomShortcuts, { loadShortcuts } from "./components/CustomShortcuts";
 import CustomerLedger from "./components/CustomerLedger";
 import CustomerMaster from "./components/CustomerMaster";
 import DataManagement from "./components/DataManagement";
@@ -121,6 +124,9 @@ import WhatsAppConfig from "./components/WhatsAppConfig";
 import BranchMaster from "./components/branches/BranchMaster";
 import BranchReports from "./components/branches/BranchReports";
 import BranchTransfer from "./components/branches/BranchTransfer";
+import CollaborationDashboard from "./components/collaboration/CollaborationDashboard";
+import VoucherComments from "./components/collaboration/VoucherComments";
+import VoucherTasks from "./components/collaboration/VoucherTasks";
 import EInvoiceForm from "./components/compliance/EInvoiceForm";
 import EInvoiceList from "./components/compliance/EInvoiceList";
 // Phase 23: Compliance
@@ -188,7 +194,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: "voucherPayment", label: "Payment", icon: Receipt, fkey: "F5" },
   { key: "voucherReceipt", label: "Receipt", icon: Receipt, fkey: "F6" },
   { key: "voucher", label: "Journal", icon: Receipt, fkey: "F7" },
-  { key: "voucherSales", label: "Sales", icon: Receipt, fkey: "F8" },
+  { key: "voucherSales", label: "Sales", icon: ShoppingCart, fkey: "F8" },
   { key: "voucherPurchase", label: "Purchase", icon: Receipt, fkey: "F9" },
   { key: "gstVoucher", label: "GST Sales/Purchase", icon: Receipt, fkey: null },
   {
@@ -642,6 +648,32 @@ const NAV_ITEMS: NavItem[] = [
     icon: BarChart3,
     fkey: null,
   },
+  // Phase 29: Collaboration
+  {
+    key: "__header_collab",
+    label: "Collaboration",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "collabDashboard",
+    label: "Dashboard",
+    icon: MessageSquare,
+    fkey: null,
+  },
+  {
+    key: "voucherComments",
+    label: "Voucher Comments",
+    icon: MessageSquare,
+    fkey: null,
+  },
+  {
+    key: "voucherTasks",
+    label: "Voucher Tasks",
+    icon: MessageSquare,
+    fkey: null,
+  },
   {
     key: "__header_reports",
     label: "Reports",
@@ -774,6 +806,12 @@ const NAV_ITEMS: NavItem[] = [
     key: "themeCustomizer",
     label: "Theme Customizer",
     icon: Settings,
+    fkey: null,
+  },
+  {
+    key: "customShortcuts",
+    label: "My Shortcuts",
+    icon: Keyboard,
     fkey: null,
   },
   // Phase 25: Data Management additions
@@ -952,6 +990,7 @@ const VIEW_LABELS: Record<string, string> = {
   offlineSync: "Offline Queue",
   syncHistory: "Sync History",
   themeCustomizer: "Theme Customizer",
+  customShortcuts: "My Custom Shortcuts",
   backupHistory: "Backup History",
   autoBackup: "Auto Backup Settings",
   userProfile: "My Profile",
@@ -1046,6 +1085,7 @@ const ROLE_ALLOWED_KEYS: Record<string, Set<string>> = {
     "followUpReminders",
     "smartAlerts",
     "ruleEngine",
+    "customShortcuts",
   ]),
   Auditor: new Set([
     "gateway",
@@ -1077,6 +1117,7 @@ const ROLE_ALLOWED_KEYS: Record<string, Set<string>> = {
     "eInvoiceList",
     "leadList",
     "smartAlerts",
+    "customShortcuts",
   ]),
   Viewer: new Set([
     "gateway",
@@ -1099,6 +1140,7 @@ const ROLE_ALLOWED_KEYS: Record<string, Set<string>> = {
     "customerLedger",
     "vendorLedger",
     "leadList",
+    "customShortcuts",
   ]),
 };
 
@@ -1419,6 +1461,30 @@ export default function App() {
           return;
         }
       }
+      // Check user custom shortcuts
+      const userShortcuts = loadShortcuts(currentUser?.username ?? "");
+      for (const sc of userShortcuts) {
+        const combo = sc.key.toLowerCase();
+        const parts: string[] = [];
+        if (e.ctrlKey) parts.push("ctrl");
+        if (e.altKey) parts.push("alt");
+        if (e.shiftKey) parts.push("shift");
+        if (
+          !["control", "alt", "shift", "meta"].includes(e.key.toLowerCase())
+        ) {
+          parts.push(
+            e.key.toLowerCase().length === 1
+              ? e.key.toLowerCase()
+              : e.key.toLowerCase(),
+          );
+        }
+        const pressed = parts.join("+");
+        if (pressed === combo) {
+          e.preventDefault();
+          navigate(sc.screen);
+          return;
+        }
+      }
       if (key === "F1") {
         e.preventDefault();
         navigate("ledgers");
@@ -1450,7 +1516,7 @@ export default function App() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [activeCompany, view, navigate]);
+  }, [activeCompany, view, navigate, currentUser]);
 
   // Login gate
   if (!currentUser) {
@@ -1647,6 +1713,10 @@ export default function App() {
     if (view === "serviceOrders") return <ServiceOrders />;
     if (view === "serviceTickets") return <ServiceTickets />;
     if (view === "serviceRegister") return <ServiceRegister />;
+    // Phase 29: Collaboration
+    if (view === "collabDashboard") return <CollaborationDashboard />;
+    if (view === "voucherComments") return <VoucherComments />;
+    if (view === "voucherTasks") return <VoucherTasks />;
     // Phase 25: Backup, Offline, Theme, Profile
     if (view === "offlineSync") return <OfflineSync />;
     if (view === "syncHistory") return <SyncHistory />;
@@ -1654,6 +1724,8 @@ export default function App() {
     if (view === "backupHistory") return <BackupHistory />;
     if (view === "autoBackup") return <AutoBackup />;
     if (view === "userProfile") return <UserProfile />;
+    if (view === "customShortcuts")
+      return <CustomShortcuts username={currentUser?.username ?? "admin"} />;
     // Phase 26
     if (view === "smartAlerts") return <SmartAlerts />;
     if (view === "ruleEngine") return <RuleEngine />;
@@ -1683,8 +1755,11 @@ export default function App() {
         {filteredNavItems.map((item, i) => {
           if (item.isHeader) {
             return (
-              // biome-ignore lint/suspicious/noArrayIndexKey: static nav headers
-              <div key={i} className="tally-section-header">
+              <div
+                key={`hdr_${item.label}`}
+                className="tally-section-header flex items-center gap-1.5 relative pl-3"
+              >
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-3 bg-teal/60 rounded-r-sm" />
                 {item.label}
               </div>
             );
@@ -1695,13 +1770,17 @@ export default function App() {
           return (
             <button
               type="button"
-              // biome-ignore lint/suspicious/noArrayIndexKey: static nav items
-              key={i}
+              key={`nav_${item.key}_${i}`}
               data-ocid={`nav.${item.label.toLowerCase().replace(/[^a-z0-9]/g, "_")}.link`}
-              className={`tally-menu-item w-full ${isActive ? "active" : ""}`}
+              className={`tally-menu-item w-full relative ${isActive ? "active border-l-2 border-teal" : "border-l-2 border-transparent"}`}
               onClick={() => navigate(item.key)}
             >
-              {Icon && <Icon size={12} className="flex-shrink-0" />}
+              {Icon && (
+                <Icon
+                  size={12}
+                  className={`flex-shrink-0 ${isActive ? "text-teal" : ""}`}
+                />
+              )}
               <span className="flex-1 truncate text-left">{item.label}</span>
               {item.fkey && (
                 <span className="tally-key-badge">{item.fkey}</span>
@@ -1739,7 +1818,7 @@ export default function App() {
             HKPro
           </span>
           <span className="text-[10px] text-muted-foreground font-mono ml-1">
-            v26.0
+            v28.0
           </span>
         </div>
 
@@ -1811,7 +1890,7 @@ export default function App() {
           className={[
             "bg-sidebar border-r border-sidebar-border flex flex-col",
             // Desktop: static in layout
-            "lg:relative lg:w-60 lg:flex-shrink-0 lg:translate-x-0 lg:z-auto",
+            "lg:relative desktop-sidebar lg:flex-shrink-0 lg:translate-x-0 lg:z-auto",
             // Mobile: fixed overlay
             "fixed top-0 left-0 h-full w-72 z-50 transition-transform duration-200",
             sidebarOpen
@@ -1902,7 +1981,7 @@ export default function App() {
           {/* BOTTOM STATUS BAR */}
           <footer className="h-8 flex items-center px-4 gap-6 border-t border-border bg-secondary/30 flex-shrink-0">
             <span className="text-[10px] font-mono text-muted-foreground">
-              Ver. 26.0
+              Ver. 29.0
             </span>
             <div className="hidden md:flex items-center gap-4 text-[10px] text-muted-foreground">
               {[
@@ -1918,6 +1997,11 @@ export default function App() {
                 </span>
               ))}
             </div>
+            <div className="flex-1" />
+            <span className="text-[9px] text-muted-foreground/50 italic hidden md:block">
+              This project is independently developed and not affiliated with
+              Tally Solutions.
+            </span>
             <div className="flex-1" />
             {currentUser && (
               <span className="text-[10px] text-muted-foreground/60">
