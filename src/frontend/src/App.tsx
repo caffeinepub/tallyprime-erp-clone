@@ -110,6 +110,9 @@ import VendorMaster from "./components/VendorMaster";
 import VoiceVoucherEntry from "./components/VoiceVoucherEntry";
 import VoucherEntry from "./components/VoucherEntry";
 import WhatsAppConfig from "./components/WhatsAppConfig";
+import BranchMaster from "./components/branches/BranchMaster";
+import BranchReports from "./components/branches/BranchReports";
+import BranchTransfer from "./components/branches/BranchTransfer";
 import EInvoiceForm from "./components/compliance/EInvoiceForm";
 import EInvoiceList from "./components/compliance/EInvoiceList";
 // Phase 23: Compliance
@@ -119,6 +122,20 @@ import FollowUpReminders from "./components/crm/FollowUpReminders";
 import LeadList from "./components/crm/LeadList";
 // Phase 23: CRM
 import LeadMaster from "./components/crm/LeadMaster";
+// Phase 24: GST Filing
+import GSTFilingDashboard from "./components/gst-filing/GSTFilingDashboard";
+import GSTFilingHistory from "./components/gst-filing/GSTFilingHistory";
+import GSTR1Filing from "./components/gst-filing/GSTR1Filing";
+import GSTR3BFiling from "./components/gst-filing/GSTR3BFiling";
+// Phase 24: POS
+import POSRegister from "./components/pos/POSRegister";
+import POSSessions from "./components/pos/POSSessions";
+import POSTerminal from "./components/pos/POSTerminal";
+// Phase 24: Service Management
+import ServiceMaster from "./components/service/ServiceMaster";
+import ServiceOrders from "./components/service/ServiceOrders";
+import ServiceRegister from "./components/service/ServiceRegister";
+import ServiceTickets from "./components/service/ServiceTickets";
 import type { AppUser } from "./types/rbac";
 import { logAuditEvent } from "./utils/auditLog";
 
@@ -543,6 +560,77 @@ const NAV_ITEMS: NavItem[] = [
     icon: Bell,
     fkey: null,
   },
+  // Phase 24: GST Filing Automation
+  {
+    key: "__header_gst_filing",
+    label: "GST Filing",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "gstFilingDashboard",
+    label: "Filing Dashboard",
+    icon: Shield,
+    fkey: null,
+  },
+  { key: "gstr1Filing", label: "GSTR-1 Filing", icon: FileText, fkey: null },
+  { key: "gstr3bFiling", label: "GSTR-3B Filing", icon: FileText, fkey: null },
+  {
+    key: "gstFilingHistory",
+    label: "Filing History",
+    icon: BookOpen,
+    fkey: null,
+  },
+  // Phase 24: POS
+  {
+    key: "__header_pos",
+    label: "Point of Sale",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "posTerminal", label: "POS Terminal", icon: ShoppingCart, fkey: null },
+  { key: "posSessions", label: "POS Sessions", icon: Receipt, fkey: null },
+  { key: "posRegister", label: "POS Register", icon: BarChart3, fkey: null },
+  // Phase 24: Multi-Branch
+  {
+    key: "__header_branches",
+    label: "Multi-Branch",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "branchMaster", label: "Branch Master", icon: Building2, fkey: null },
+  { key: "branchTransfer", label: "Branch Transfer", icon: Truck, fkey: null },
+  {
+    key: "branchReports",
+    label: "Branch Reports",
+    icon: BarChart3,
+    fkey: null,
+  },
+  // Phase 24: Service Management
+  {
+    key: "__header_service",
+    label: "Service Management",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "serviceMaster", label: "Service Master", icon: Layers, fkey: null },
+  {
+    key: "serviceOrders",
+    label: "Service Orders",
+    icon: ClipboardList,
+    fkey: null,
+  },
+  { key: "serviceTickets", label: "Service Tickets", icon: Target, fkey: null },
+  {
+    key: "serviceRegister",
+    label: "Service Register",
+    icon: BarChart3,
+    fkey: null,
+  },
   {
     key: "__header_reports",
     label: "Reports",
@@ -752,6 +840,21 @@ const VIEW_LABELS: Record<string, string> = {
   leadMaster: "Create Lead",
   leadList: "Lead List",
   followUpReminders: "Follow-up Reminders",
+  // Phase 24
+  gstFilingDashboard: "GST Filing Dashboard",
+  gstr1Filing: "GSTR-1 Filing",
+  gstr3bFiling: "GSTR-3B Filing",
+  gstFilingHistory: "GST Filing History",
+  posTerminal: "POS Terminal",
+  posSessions: "POS Sessions",
+  posRegister: "POS Sales Register",
+  branchMaster: "Branch Master",
+  branchTransfer: "Branch Transfer",
+  branchReports: "Branch Reports",
+  serviceMaster: "Service Master",
+  serviceOrders: "Service Orders",
+  serviceTickets: "Service Tickets",
+  serviceRegister: "Service Register",
 };
 
 // Role-based allowed nav keys
@@ -1336,6 +1439,26 @@ export default function App() {
     if (view === "leadMaster") return <LeadMaster />;
     if (view === "leadList") return <LeadList />;
     if (view === "followUpReminders") return <FollowUpReminders />;
+    // Phase 24: GST Filing
+    if (view === "gstFilingDashboard")
+      return <GSTFilingDashboard company={activeCompany} />;
+    if (view === "gstr1Filing") return <GSTR1Filing company={activeCompany} />;
+    if (view === "gstr3bFiling")
+      return <GSTR3BFiling company={activeCompany} />;
+    if (view === "gstFilingHistory") return <GSTFilingHistory />;
+    // Phase 24: POS
+    if (view === "posTerminal") return <POSTerminal company={activeCompany} />;
+    if (view === "posSessions") return <POSSessions company={activeCompany} />;
+    if (view === "posRegister") return <POSRegister />;
+    // Phase 24: Multi-Branch
+    if (view === "branchMaster") return <BranchMaster />;
+    if (view === "branchTransfer") return <BranchTransfer />;
+    if (view === "branchReports") return <BranchReports />;
+    // Phase 24: Service Management
+    if (view === "serviceMaster") return <ServiceMaster />;
+    if (view === "serviceOrders") return <ServiceOrders />;
+    if (view === "serviceTickets") return <ServiceTickets />;
+    if (view === "serviceRegister") return <ServiceRegister />;
     if (view.startsWith("voucher")) {
       const vType = VOUCHER_TYPE_MAP[view] || "Journal";
       return (
@@ -1417,7 +1540,7 @@ export default function App() {
             HKPro
           </span>
           <span className="text-[10px] text-muted-foreground font-mono ml-1">
-            v23.0
+            v24.0
           </span>
         </div>
 

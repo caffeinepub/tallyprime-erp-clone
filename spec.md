@@ -1,47 +1,23 @@
-# HisabKitab Pro — Phase 23
+# HisabKitab Pro — Phase 24
 
 ## Current State
-Full ERP with 22 phases: accounting, GST, inventory, payroll, banking, fixed assets, cost centres, multi-currency, RBAC, data management, analytics, audit trail, advanced reporting, notifications, printing/export, integrations, AI tools, budgeting, multi-company, project costing, customer/vendor portals, purchase orders, sales orders. Desktop-first, Tally-like interface.
+Fully functional ERP with 23 phases including accounting, GST, inventory, payroll, banking, fixed assets, cost centres, multi-currency, RBAC, data management, analytics, audit trail, advanced reporting, notifications, printing/export, integrations, AI tools, voice entry, WhatsApp, budgeting, multi-company consolidation, project costing, customer/vendor portals, purchase/sales orders, e-Way Bill, E-Invoice, CRM, mobile/tablet responsiveness.
 
 ## Requested Changes (Diff)
 
 ### Add
-- **e-Way Bill module** (new sidebar section under GST/Compliance):
-  - e-Way Bill generation form (supplier/recipient GSTIN, place of supply, transport mode, vehicle number, distance, item details)
-  - e-Way Bill list view with status (Active, Cancelled, Expired)
-  - Cancel e-Way Bill screen
-  - Print/Download e-Way Bill
-- **GST E-Invoice module** (under same Compliance section):
-  - E-Invoice generation from Sales Voucher (IRN, QR Code display)
-  - E-Invoice list with IRN, status (Generated, Cancelled)
-  - Cancel E-Invoice screen
-  - Print E-Invoice with QR
-- **CRM module** (new sidebar section):
-  - Lead Master (name, contact, source, status: New/Follow-up/Won/Lost)
-  - Lead List with filters
-  - Follow-up reminders
-  - Customer conversion (Lead → Customer Master)
-- **Mobile & Tablet Responsive Layout** (ONLY mobile/tablet breakpoints — desktop unchanged):
-  - Collapsible hamburger sidebar on mobile/tablet (hidden by default, slide-in on tap)
-  - Top navbar with hamburger icon on mobile/tablet
-  - Card-based layouts replacing dense tables on small screens
-  - Touch-friendly tap targets (min 44px)
-  - Forms stack vertically on mobile
-  - Sidebar overlay closes on outside tap
-  - All existing desktop styles preserved exactly — only add media queries for <1024px
+- GST Filing Automation (new sidebar section): Filing Dashboard with due dates/calendar, GSTR-1 Filing (review + mark filed + history), GSTR-3B Filing (review liability + payment challan), Filing History Register
+- POS - Point of Sale (new sidebar section): POS Terminal (product search, cart, discounts, cash/card/UPI payment, receipt print), POS Sessions (open/close + summary), POS Sales Register
+- Multi-Branch (new sidebar section): Branch Master (create/edit with address, GST, manager), Branch Transfer (inter-branch stock/fund), Branch-wise Reports (P&L + Stock)
+- Service Management (new sidebar section): Service Master (define services with rate/HSN/tax), Service Orders (job cards), Service Tickets (open/in-progress/completed), Service Register
 
 ### Modify
-- Sidebar: add Compliance (e-Way Bill, E-Invoice) and CRM sections
-- App layout: add responsive wrapper with hamburger for mobile/tablet only
+- App.tsx: add imports, 4 new sidebar sections with nav items, VIEW_LABELS entries, render cases
 
 ### Remove
-- Nothing — zero regression of existing features
+- Nothing
 
 ## Implementation Plan
-1. Add eWayBill component: generation form, list, cancel, print
-2. Add EInvoice component: generation, IRN display, QR placeholder, list, cancel, print
-3. Add CRM components: LeadMaster, LeadList, FollowUp, conversion flow
-4. Add Compliance sidebar section with e-Way Bill and E-Invoice subsections
-5. Add CRM sidebar section
-6. Implement responsive layout: hamburger button + slide-in sidebar overlay for screens <1024px, using Tailwind responsive prefixes (md:, lg:) without touching desktop styles
-7. Validate all existing routes and components still render correctly
+1. Create 14 new component files for the 4 new sections
+2. Update App.tsx with all wiring (imports, nav, labels, renders)
+3. Validate and build
