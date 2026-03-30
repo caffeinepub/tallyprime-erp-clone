@@ -41,6 +41,9 @@ import AISettings from "./components/AISettings";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
 import AssetRegister from "./components/AssetRegister";
 import AuditTrail from "./components/AuditTrail";
+// Phase 25: Backup, Offline, Theme, Profile
+import AutoBackup from "./components/AutoBackup";
+import BackupHistory from "./components/BackupHistory";
 import BalanceSheet from "./components/BalanceSheet";
 import BankAccounts from "./components/BankAccounts";
 import BankReconciliation from "./components/BankReconciliation";
@@ -75,6 +78,7 @@ import InvoiceDispatch from "./components/InvoiceDispatch";
 import InvoiceTemplates from "./components/InvoiceTemplates";
 import LedgerList from "./components/LedgerList";
 import LoginScreen from "./components/LoginScreen";
+import MakerChecker from "./components/MakerChecker";
 import NotificationCenter from "./components/NotificationCenter";
 import PLAccount from "./components/PLAccount";
 import PaySlip from "./components/PaySlip";
@@ -91,20 +95,24 @@ import PurchaseOrderReceipt from "./components/PurchaseOrderReceipt";
 import PurchaseOrderRegister from "./components/PurchaseOrderRegister";
 import ReportBuilder from "./components/ReportBuilder";
 import RolePermissions from "./components/RolePermissions";
+import RuleEngine from "./components/RuleEngine";
 import SalaryStructureSetup from "./components/SalaryStructureSetup";
 import SalesOrderDispatch from "./components/SalesOrderDispatch";
 import SalesOrderEntry from "./components/SalesOrderEntry";
 import SalesOrderList from "./components/SalesOrderList";
 import SalesOrderRegister from "./components/SalesOrderRegister";
 import ScheduledReports from "./components/ScheduledReports";
+import SmartAlerts from "./components/SmartAlerts";
 import StockGroups from "./components/StockGroups";
 import StockItems from "./components/StockItems";
 import StockLedger from "./components/StockLedger";
 import StockSummary from "./components/StockSummary";
 import StockVoucherEntry from "./components/StockVoucherEntry";
 import TaxLedgers from "./components/TaxLedgers";
+import ThemeCustomizer from "./components/ThemeCustomizer";
 import TrialBalance from "./components/TrialBalance";
 import UserManagement from "./components/UserManagement";
+import UserProfile from "./components/UserProfile";
 import VendorLedger from "./components/VendorLedger";
 import VendorMaster from "./components/VendorMaster";
 import VoiceVoucherEntry from "./components/VoiceVoucherEntry";
@@ -127,6 +135,8 @@ import GSTFilingDashboard from "./components/gst-filing/GSTFilingDashboard";
 import GSTFilingHistory from "./components/gst-filing/GSTFilingHistory";
 import GSTR1Filing from "./components/gst-filing/GSTR1Filing";
 import GSTR3BFiling from "./components/gst-filing/GSTR3BFiling";
+import OfflineSync from "./components/offline/OfflineSync";
+import SyncHistory from "./components/offline/SyncHistory";
 // Phase 24: POS
 import POSRegister from "./components/pos/POSRegister";
 import POSSessions from "./components/pos/POSSessions";
@@ -136,6 +146,7 @@ import ServiceMaster from "./components/service/ServiceMaster";
 import ServiceOrders from "./components/service/ServiceOrders";
 import ServiceRegister from "./components/service/ServiceRegister";
 import ServiceTickets from "./components/service/ServiceTickets";
+import { loadSavedTheme } from "./lib/themeManager";
 import type { AppUser } from "./types/rbac";
 import { logAuditEvent } from "./utils/auditLog";
 
@@ -741,6 +752,88 @@ const NAV_ITEMS: NavItem[] = [
     fkey: null,
     adminOnly: true,
   },
+  // Phase 25: Offline & Sync
+  {
+    key: "__header_offline",
+    label: "Offline & Sync",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "offlineSync", label: "Offline Queue", icon: Database, fkey: null },
+  { key: "syncHistory", label: "Sync History", icon: FileText, fkey: null },
+  // Phase 25: Appearance
+  {
+    key: "__header_appearance",
+    label: "Appearance",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "themeCustomizer",
+    label: "Theme Customizer",
+    icon: Settings,
+    fkey: null,
+  },
+  // Phase 25: Data Management additions
+  {
+    key: "backupHistory",
+    label: "Backup History",
+    icon: Database,
+    fkey: null,
+    adminOnly: true,
+  },
+  {
+    key: "autoBackup",
+    label: "Auto Backup Settings",
+    icon: Settings,
+    fkey: null,
+    adminOnly: true,
+  },
+  // Phase 25: User Profile
+  {
+    key: "__header_profile",
+    label: "My Account",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "userProfile", label: "My Profile", icon: User, fkey: null },
+  // Phase 26: Smart Alerts
+  {
+    key: "__header_smart_alerts",
+    label: "Smart Alerts",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "smartAlerts", label: "Alert Dashboard", icon: Bell, fkey: null },
+  // Phase 26: Rule Engine
+  {
+    key: "__header_rule_engine",
+    label: "Rule Engine",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "ruleEngine", label: "Automation Rules", icon: Settings, fkey: null },
+  // Phase 26: Maker-Checker
+  {
+    key: "__header_maker_checker",
+    label: "Maker-Checker",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+    adminOnly: true,
+  },
+  {
+    key: "makerChecker",
+    label: "Pending Approvals",
+    icon: UserCheck,
+    fkey: null,
+    adminOnly: true,
+  },
 ];
 
 const VOUCHER_TYPE_MAP: Record<string, string> = {
@@ -855,6 +948,17 @@ const VIEW_LABELS: Record<string, string> = {
   serviceOrders: "Service Orders",
   serviceTickets: "Service Tickets",
   serviceRegister: "Service Register",
+  // Phase 25
+  offlineSync: "Offline Queue",
+  syncHistory: "Sync History",
+  themeCustomizer: "Theme Customizer",
+  backupHistory: "Backup History",
+  autoBackup: "Auto Backup Settings",
+  userProfile: "My Profile",
+  // Phase 26
+  smartAlerts: "Smart Alerts Dashboard",
+  ruleEngine: "Rule Engine",
+  makerChecker: "Maker-Checker Approvals",
 };
 
 // Role-based allowed nav keys
@@ -940,6 +1044,8 @@ const ROLE_ALLOWED_KEYS: Record<string, Set<string>> = {
     "leadMaster",
     "leadList",
     "followUpReminders",
+    "smartAlerts",
+    "ruleEngine",
   ]),
   Auditor: new Set([
     "gateway",
@@ -970,6 +1076,7 @@ const ROLE_ALLOWED_KEYS: Record<string, Set<string>> = {
     "ewayBillList",
     "eInvoiceList",
     "leadList",
+    "smartAlerts",
   ]),
   Viewer: new Set([
     "gateway",
@@ -1053,6 +1160,7 @@ function UserProfileDropdown({
   onNavigate,
   currentUser,
   onLogout,
+  profilePhoto,
 }: {
   activeCompany: Company | null;
   theme: string;
@@ -1060,6 +1168,7 @@ function UserProfileDropdown({
   onNavigate: (v: string) => void;
   currentUser: AppUser | null;
   onLogout: () => void;
+  profilePhoto?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -1083,10 +1192,18 @@ function UserProfileDropdown({
         type="button"
         data-ocid="app.user_profile.open_modal_button"
         onClick={() => setOpen((o) => !o)}
-        className="w-8 h-8 rounded-full bg-teal/20 border border-teal/40 flex items-center justify-center hover:bg-teal/30 transition-colors"
+        className="w-8 h-8 rounded-full bg-teal/20 border border-teal/40 flex items-center justify-center hover:bg-teal/30 transition-colors overflow-hidden"
         title="User Profile"
       >
-        <User size={14} className="text-teal" />
+        {profilePhoto ? (
+          <img
+            src={profilePhoto}
+            alt="Profile"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <User size={14} className="text-teal" />
+        )}
       </button>
 
       {open && (
@@ -1140,6 +1257,18 @@ function UserProfileDropdown({
             <div className="border-t border-border/60 my-1" />
             <button
               type="button"
+              data-ocid="app.user_profile.my_profile.button"
+              onClick={() => {
+                onNavigate("userProfile");
+                setOpen(false);
+              }}
+              className="flex items-center gap-2 w-full px-3 py-2 text-[12px] text-foreground hover:bg-secondary/60 transition-colors"
+            >
+              <User size={13} className="text-muted-foreground" />
+              My Profile
+            </button>
+            <button
+              type="button"
               data-ocid="app.user_profile.settings.button"
               onClick={() => {
                 onNavigate("gateway");
@@ -1191,6 +1320,34 @@ export default function App() {
   });
   // Mobile sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Phase 26: GoTo/Help modals
+  const [goToOpen, setGoToOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  // Phase 25: online/offline status
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(() =>
+    localStorage.getItem("hisabkitab_profile_photo"),
+  );
+
+  useEffect(() => {
+    loadSavedTheme();
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    const onStorage = () =>
+      setProfilePhoto(localStorage.getItem("hisabkitab_profile_photo"));
+    const onThemeChanged = () => loadSavedTheme();
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("themeChanged", onThemeChanged);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("themeChanged", onThemeChanged);
+    };
+  }, []);
 
   const toggleTheme = useCallback(() => {
     setTheme((prev) => {
@@ -1225,11 +1382,42 @@ export default function App() {
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (!activeCompany) return;
+      const isTyping =
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement;
       const key = e.key;
+      // GoTo/Help shortcuts work even without activeCompany (just need to not be typing)
+      if (!isTyping) {
+        if (key === "g" || key === "G") {
+          setGoToOpen(true);
+          return;
+        }
+        if (key === "h" || key === "H") {
+          setHelpOpen(true);
+          return;
+        }
+      }
+      if (!activeCompany) return;
       if (key === "Escape") {
+        setGoToOpen(false);
+        setHelpOpen(false);
         if (view !== "gateway") navigate("gateway");
         return;
+      }
+      if (!isTyping) {
+        if (key === "p" || key === "P") {
+          window.print();
+          return;
+        }
+        if (key === "e" || key === "E") {
+          navigate("exportCenter");
+          return;
+        }
+        if (key === "m" || key === "M") {
+          navigate("invoiceDispatch");
+          return;
+        }
       }
       if (key === "F1") {
         e.preventDefault();
@@ -1459,6 +1647,17 @@ export default function App() {
     if (view === "serviceOrders") return <ServiceOrders />;
     if (view === "serviceTickets") return <ServiceTickets />;
     if (view === "serviceRegister") return <ServiceRegister />;
+    // Phase 25: Backup, Offline, Theme, Profile
+    if (view === "offlineSync") return <OfflineSync />;
+    if (view === "syncHistory") return <SyncHistory />;
+    if (view === "themeCustomizer") return <ThemeCustomizer />;
+    if (view === "backupHistory") return <BackupHistory />;
+    if (view === "autoBackup") return <AutoBackup />;
+    if (view === "userProfile") return <UserProfile />;
+    // Phase 26
+    if (view === "smartAlerts") return <SmartAlerts />;
+    if (view === "ruleEngine") return <RuleEngine />;
+    if (view === "makerChecker") return <MakerChecker />;
     if (view.startsWith("voucher")) {
       const vType = VOUCHER_TYPE_MAP[view] || "Journal";
       return (
@@ -1540,7 +1739,7 @@ export default function App() {
             HKPro
           </span>
           <span className="text-[10px] text-muted-foreground font-mono ml-1">
-            v24.0
+            v26.0
           </span>
         </div>
 
@@ -1578,6 +1777,11 @@ export default function App() {
 
         <ThemeToggle theme={theme} onToggle={toggleTheme} />
 
+        {/* Phase 25: Online/Offline indicator */}
+        <div
+          title={isOnline ? "Online" : "Offline"}
+          className={`w-2.5 h-2.5 rounded-full border border-background flex-shrink-0 ${isOnline ? "bg-green-500" : "bg-red-500"}`}
+        />
         <UserProfileDropdown
           activeCompany={activeCompany}
           theme={theme}
@@ -1585,6 +1789,7 @@ export default function App() {
           onNavigate={navigate}
           currentUser={currentUser}
           onLogout={handleLogout}
+          profilePhoto={profilePhoto}
         />
       </header>
 
@@ -1643,13 +1848,43 @@ export default function App() {
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           {/* Command Strip — hidden on small screens */}
           <div className="hidden lg:flex h-9 items-center gap-1 px-3 border-b border-border bg-card flex-shrink-0">
-            {["G: Go To", "G: Print", "E: Export", "M: E-Mail", "H: Help"].map(
-              (label) => (
-                <button type="button" key={label} className="cmd-btn">
-                  {label}
-                </button>
-              ),
-            )}
+            {[
+              {
+                label: "G: Go To",
+                action: () => setGoToOpen(true),
+                ocid: "app.goto.button",
+              },
+              {
+                label: "G: Print",
+                action: () => window.print(),
+                ocid: "app.print.button",
+              },
+              {
+                label: "E: Export",
+                action: () => navigate("exportCenter"),
+                ocid: "app.export.button",
+              },
+              {
+                label: "M: E-Mail",
+                action: () => navigate("invoiceDispatch"),
+                ocid: "app.email.button",
+              },
+              {
+                label: "H: Help",
+                action: () => setHelpOpen(true),
+                ocid: "app.help.button",
+              },
+            ].map(({ label, action, ocid }) => (
+              <button
+                type="button"
+                key={label}
+                className="cmd-btn"
+                onClick={action}
+                data-ocid={ocid}
+              >
+                {label}
+              </button>
+            ))}
             <div className="flex-1" />
             <span className="text-[10px] text-muted-foreground font-mono">
               {new Date().toLocaleDateString("en-IN", {
@@ -1667,7 +1902,7 @@ export default function App() {
           {/* BOTTOM STATUS BAR */}
           <footer className="h-8 flex items-center px-4 gap-6 border-t border-border bg-secondary/30 flex-shrink-0">
             <span className="text-[10px] font-mono text-muted-foreground">
-              Ver. 23.0
+              Ver. 26.0
             </span>
             <div className="hidden md:flex items-center gap-4 text-[10px] text-muted-foreground">
               {[
@@ -1696,6 +1931,149 @@ export default function App() {
           </footer>
         </div>
       </div>
+
+      {/* GoTo Modal */}
+      {goToOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-[100] flex items-start justify-center pt-24"
+          onClick={() => setGoToOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setGoToOpen(false);
+          }}
+          aria-modal="true"
+          data-ocid="app.goto.modal"
+        >
+          <div
+            className="w-full max-w-md bg-card border border-border shadow-xl rounded"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="presentation"
+          >
+            <div className="p-3 border-b border-border">
+              <div className="text-xs text-muted-foreground mb-2 font-mono">
+                G: Go To — type to search
+              </div>
+              <input
+                type="text"
+                className="w-full bg-secondary/50 border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-teal/60"
+                placeholder="Search screens..."
+                onChange={(e) => {
+                  const q = e.target.value.toLowerCase();
+                  const list = document.getElementById("goto-results");
+                  if (!list) return;
+                  for (const btn of Array.from(
+                    list.querySelectorAll("button[data-key]"),
+                  )) {
+                    const label =
+                      (btn as HTMLButtonElement).textContent?.toLowerCase() ??
+                      "";
+                    (btn as HTMLElement).style.display = label.includes(q)
+                      ? ""
+                      : "none";
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setGoToOpen(false);
+                }}
+                data-ocid="app.goto.search_input"
+              />
+            </div>
+            <div id="goto-results" className="max-h-64 overflow-y-auto py-1">
+              {NAV_ITEMS.filter(
+                (n) => !n.isHeader && !n.key.startsWith("__"),
+              ).map((item, i) => (
+                <button
+                  type="button"
+                  // biome-ignore lint/suspicious/noArrayIndexKey: nav list
+                  key={i}
+                  data-key={item.key}
+                  className="w-full text-left px-4 py-2 text-xs text-foreground hover:bg-teal/10 flex items-center gap-2"
+                  onClick={() => {
+                    navigate(item.key);
+                    setGoToOpen(false);
+                  }}
+                >
+                  {item.icon && (
+                    <item.icon
+                      size={11}
+                      className="text-muted-foreground flex-shrink-0"
+                    />
+                  )}
+                  {item.label}
+                  {item.fkey && (
+                    <span className="ml-auto tally-key-badge">{item.fkey}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Help Modal */}
+      {helpOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4"
+          onClick={() => setHelpOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setHelpOpen(false);
+          }}
+          aria-modal="true"
+          data-ocid="app.help.modal"
+        >
+          <div
+            className="w-full max-w-lg bg-card border border-border shadow-xl rounded"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="presentation"
+          >
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <span className="text-sm font-bold text-foreground">
+                Keyboard Shortcuts — HisabKitab Pro
+              </span>
+              <button
+                type="button"
+                onClick={() => setHelpOpen(false)}
+                className="text-muted-foreground hover:text-foreground text-xs"
+                data-ocid="app.help.close_button"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+              {[
+                ["F1", "Create Ledger"],
+                ["F4", "Contra Voucher"],
+                ["F5", "Payment Voucher"],
+                ["F6", "Receipt Voucher"],
+                ["F7", "Journal Voucher"],
+                ["F8", "Sales Voucher"],
+                ["F9", "Purchase Voucher"],
+                ["ESC", "Go Back / Close"],
+                ["G", "Go To (navigate)"],
+                ["P", "Print current view"],
+                ["E", "Export Center"],
+                ["M", "Email / Dispatch"],
+                ["H", "Help (this screen)"],
+                ["Alt+C", "Create (action)"],
+                ["F3", "Company Select"],
+                ["Alt+Z", "Alter Company"],
+              ].map(([key, desc]) => (
+                <div key={key} className="flex items-center gap-2">
+                  <span className="tally-key-badge text-[10px] min-w-[40px] text-center">
+                    {key}
+                  </span>
+                  <span className="text-muted-foreground">{desc}</span>
+                </div>
+              ))}
+            </div>
+            <div className="px-4 pb-4 text-[10px] text-muted-foreground border-t border-border pt-3">
+              Shortcuts are disabled when cursor is inside an input, textarea,
+              or select field.
+            </div>
+          </div>
+        </div>
+      )}
       <Toaster />
     </div>
   );
