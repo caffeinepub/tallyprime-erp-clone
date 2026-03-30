@@ -1,29 +1,26 @@
-# HisabKitab Pro — Phase 29
+# HisabKitab Pro — Phase 33
 
 ## Current State
-Full-featured ERP with 28 phases. App.tsx has a desktop sidebar fixed at `lg:w-60` (240px). All features from Phases 1–28 intact.
+Phase 32 is live with 84+ components covering all ERP features through Smart Compliance Engine, Rule Engine, Advanced Security, Collaboration, Event Ledger (basic), and Doc Intelligence. Backend is persistent Motoko actor.
 
 ## Requested Changes (Diff)
 
 ### Add
-- **Collaboration Module** (new sidebar section): Comments and Tasks on vouchers
-  - Voucher Comments: Add/view threaded comments on any voucher, with timestamp and author
-  - Voucher Tasks: Create tasks tied to vouchers (assignee, due date, priority, status)
-  - Collaboration Dashboard: Overview of open tasks, recent comments, and activity feed
-- Desktop sidebar width changed to 15vw (15% of screen width) using inline style
+- **Event Ledger Deep Enhancements**: Time-Travel Report (pick any date → rebuild Trial Balance from events), Undo/Redo Stack (visual panel with bulk undo/redo), Diff Viewer (compare two snapshots side-by-side with delta highlights)
+- **Tally Import** (new sidebar section): 4-step import wizard (upload XML/CSV → field mapping → preview with error rows → import with summary), Migration History table, Sample XML/CSV download
+- **Customization Engine** (new sidebar section): JSON Config Editor (save/reset/export/import), 3 Config Templates (Minimal/Full/GST-Only), Workflow Builder (trigger + multi-step actions + enable/disable), Custom Fields manager (Voucher/Ledger/Customer/Vendor)
 
 ### Modify
-- Sidebar `<aside>` element: add `style={{ width: undefined }}` overridden with CSS/inline to set `15vw` on `lg` breakpoint
-- Footer version bump: Ver. 28.0 → Ver. 29.0
-- Add "Collaboration" section to sidebar nav
+- Sidebar: Add "Tally Import" and "Customization Engine" sections
+- Event Ledger section: add Time-Travel Report, Undo Stack, Diff Viewer tabs
 
 ### Remove
-- Nothing removed
+- Nothing
 
 ## Implementation Plan
-1. Change sidebar desktop width from `lg:w-60` to inline style `minWidth:'15vw', width:'15vw'` on desktop (use a wrapper or conditional style with window width check, or use CSS class override in index.css)
-2. Create `src/frontend/src/components/collaboration/CollaborationDashboard.tsx` — shows open tasks and recent comments
-3. Create `src/frontend/src/components/collaboration/VoucherComments.tsx` — comment thread per voucher number
-4. Create `src/frontend/src/components/collaboration/VoucherTasks.tsx` — task list with create/edit/status update
-5. Wire new components into App.tsx sidebar nav (Collaboration section) and renderMain()
-6. Bump version to 29.0 in footer
+1. Create TimeTravelReport.tsx component in event-ledger folder
+2. Create UndoRedoStack.tsx component in event-ledger folder  
+3. Create DiffViewer.tsx component in event-ledger folder
+4. Create TallyImport folder with ImportWizard.tsx, MigrationHistory.tsx
+5. Create CustomizationEngine folder with JSONConfigEditor.tsx, WorkflowBuilder.tsx, CustomFields.tsx
+6. Wire all new components into App.tsx sidebar and routing

@@ -1,14 +1,22 @@
 import { Toaster } from "@/components/ui/sonner";
 import {
+  AlertCircle,
   BarChart3,
   Bell,
   BookOpen,
   Briefcase,
   Building2,
+  Camera,
+  ClipboardEdit,
   ClipboardList,
+  Clock,
+  Code,
   Database,
   DollarSign,
   FileText,
+  GitBranch,
+  GitCompare,
+  History,
   Keyboard,
   Landmark,
   Layers,
@@ -21,8 +29,11 @@ import {
   Mic,
   Moon,
   PieChart,
+  Plus,
   QrCode,
   Receipt,
+  RefreshCw,
+  ScanLine,
   Settings,
   Shield,
   ShoppingCart,
@@ -30,6 +41,8 @@ import {
   Target,
   TrendingUp,
   Truck,
+  Undo2,
+  Upload,
   User,
   UserCheck,
   UserPlus,
@@ -58,6 +71,8 @@ import ChequeManagement from "./components/ChequeManagement";
 import ChequeRegister from "./components/ChequeRegister";
 import CompanySelection from "./components/CompanySelection";
 import ConsolidatedReports from "./components/ConsolidatedReports";
+// Phase 32: New components
+import ContactQueries from "./components/ContactQueries";
 import CostCentreMaster from "./components/CostCentreMaster";
 import CostCentreSummary from "./components/CostCentreSummary";
 import CurrencyMaster from "./components/CurrencyMaster";
@@ -127,6 +142,10 @@ import BranchTransfer from "./components/branches/BranchTransfer";
 import CollaborationDashboard from "./components/collaboration/CollaborationDashboard";
 import VoucherComments from "./components/collaboration/VoucherComments";
 import VoucherTasks from "./components/collaboration/VoucherTasks";
+import ComplianceEngineDashboard from "./components/compliance-engine/ComplianceEngineDashboard";
+import ComplianceScore from "./components/compliance-engine/ComplianceScore";
+import FilingAlertsDashboard from "./components/compliance-engine/FilingAlertsDashboard";
+import GSTErrorDetector from "./components/compliance-engine/GSTErrorDetector";
 import EInvoiceForm from "./components/compliance/EInvoiceForm";
 import EInvoiceList from "./components/compliance/EInvoiceList";
 // Phase 23: Compliance
@@ -136,6 +155,24 @@ import FollowUpReminders from "./components/crm/FollowUpReminders";
 import LeadList from "./components/crm/LeadList";
 // Phase 23: CRM
 import LeadMaster from "./components/crm/LeadMaster";
+import CustomFields from "./components/customization/CustomFields";
+// Phase 33: Customization Engine
+import JSONConfigEditor from "./components/customization/JSONConfigEditor";
+import WorkflowBuilder from "./components/customization/WorkflowBuilder";
+// Phase 31: Doc Intelligence
+import DocumentRegister from "./components/doc-intelligence/DocumentRegister";
+import DocumentUpload from "./components/doc-intelligence/DocumentUpload";
+import StructuredEntry from "./components/doc-intelligence/StructuredEntry";
+import DiffViewer from "./components/event-ledger/DiffViewer";
+// Phase 31: Event Ledger
+import EventLog from "./components/event-ledger/EventLog";
+import EventReplay from "./components/event-ledger/EventReplay";
+import EventTimeline from "./components/event-ledger/EventTimeline";
+import SnapshotManager from "./components/event-ledger/SnapshotManager";
+// Phase 33: Event Ledger Deep Enhancements
+import TimeTravelReport from "./components/event-ledger/TimeTravelReport";
+import UndoEngine from "./components/event-ledger/UndoEngine";
+import UndoRedoStack from "./components/event-ledger/UndoRedoStack";
 // Phase 24: GST Filing
 import GSTFilingDashboard from "./components/gst-filing/GSTFilingDashboard";
 import GSTFilingHistory from "./components/gst-filing/GSTFilingHistory";
@@ -147,11 +184,16 @@ import SyncHistory from "./components/offline/SyncHistory";
 import POSRegister from "./components/pos/POSRegister";
 import POSSessions from "./components/pos/POSSessions";
 import POSTerminal from "./components/pos/POSTerminal";
+import FieldPermissions from "./components/security/FieldPermissions";
+import PasswordPolicy from "./components/security/PasswordPolicy";
 // Phase 24: Service Management
 import ServiceMaster from "./components/service/ServiceMaster";
 import ServiceOrders from "./components/service/ServiceOrders";
 import ServiceRegister from "./components/service/ServiceRegister";
 import ServiceTickets from "./components/service/ServiceTickets";
+// Phase 33: Tally Import
+import ImportWizard from "./components/tally-import/ImportWizard";
+import MigrationHistory from "./components/tally-import/MigrationHistory";
 import { loadSavedTheme } from "./lib/themeManager";
 import type { AppUser } from "./types/rbac";
 import { logAuditEvent } from "./utils/auditLog";
@@ -674,6 +716,54 @@ const NAV_ITEMS: NavItem[] = [
     icon: MessageSquare,
     fkey: null,
   },
+  // Phase 31: Event Ledger
+  {
+    key: "__header_eventledger",
+    label: "Event Ledger",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "eventLog", label: "Event Log", icon: History, fkey: null },
+  { key: "eventReplay", label: "Event Replay", icon: RefreshCw, fkey: null },
+  { key: "undoEngine", label: "Undo Engine", icon: Undo2, fkey: null },
+  {
+    key: "eventTimeline",
+    label: "Event Timeline",
+    icon: GitBranch,
+    fkey: null,
+  },
+  { key: "snapshotManager", label: "Snapshots", icon: Camera, fkey: null },
+  // Phase 33: Event Ledger Deep Enhancements
+  {
+    key: "timeTravelReport",
+    label: "Time-Travel Report",
+    icon: Clock,
+    fkey: null,
+  },
+  { key: "undoRedoStack", label: "Undo/Redo Stack", icon: Undo2, fkey: null },
+  { key: "diffViewer", label: "Diff Viewer", icon: GitCompare, fkey: null },
+  // Phase 31: Doc Intelligence
+  {
+    key: "__header_docintel",
+    label: "Doc Intelligence",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "documentUpload", label: "Scan Document", icon: ScanLine, fkey: null },
+  {
+    key: "documentRegister",
+    label: "Document Register",
+    icon: FileText,
+    fkey: null,
+  },
+  {
+    key: "structuredEntry",
+    label: "Structured Entry",
+    icon: ClipboardEdit,
+    fkey: null,
+  },
   {
     key: "__header_reports",
     label: "Reports",
@@ -706,6 +796,27 @@ const NAV_ITEMS: NavItem[] = [
     key: "rolePermissions",
     label: "Roles & Permissions",
     icon: Lock,
+    fkey: null,
+    adminOnly: true,
+  },
+  {
+    key: "field-permissions",
+    label: "Field Permissions",
+    icon: Shield,
+    fkey: null,
+    adminOnly: true,
+  },
+  {
+    key: "password-policy",
+    label: "Password Policy",
+    icon: Lock,
+    fkey: null,
+    adminOnly: true,
+  },
+  {
+    key: "contact-queries",
+    label: "Contact Queries",
+    icon: MessageSquare,
     fkey: null,
     adminOnly: true,
   },
@@ -872,6 +983,64 @@ const NAV_ITEMS: NavItem[] = [
     fkey: null,
     adminOnly: true,
   },
+  // Phase 32: Compliance Engine
+  {
+    key: "__header_compliance_engine",
+    label: "Compliance Engine",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "compliance-engine", label: "CE Dashboard", icon: Shield, fkey: null },
+  {
+    key: "gst-error-detector",
+    label: "GST Error Detector",
+    icon: AlertCircle,
+    fkey: null,
+  },
+  { key: "filing-alerts", label: "Filing Alerts", icon: Bell, fkey: null },
+  {
+    key: "compliance-score",
+    label: "Compliance Score",
+    icon: Target,
+    fkey: null,
+  },
+  // Phase 33: Tally Import
+  {
+    key: "__header_tallyimport",
+    label: "Tally Import",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "importWizard", label: "Import Wizard", icon: Upload, fkey: null },
+  {
+    key: "migrationHistory",
+    label: "Migration History",
+    icon: History,
+    fkey: null,
+  },
+  // Phase 33: Customization Engine
+  {
+    key: "__header_customization",
+    label: "Customization",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "jsonConfigEditor",
+    label: "JSON Config Editor",
+    icon: Code,
+    fkey: null,
+  },
+  {
+    key: "workflowBuilder",
+    label: "Workflow Builder",
+    icon: GitBranch,
+    fkey: null,
+  },
+  { key: "customFields", label: "Custom Fields", icon: Settings, fkey: null },
 ];
 
 const VOUCHER_TYPE_MAP: Record<string, string> = {
@@ -998,6 +1167,13 @@ const VIEW_LABELS: Record<string, string> = {
   smartAlerts: "Smart Alerts Dashboard",
   ruleEngine: "Rule Engine",
   makerChecker: "Maker-Checker Approvals",
+  "compliance-engine": "Compliance Engine Dashboard",
+  "gst-error-detector": "GST Error Detector",
+  "filing-alerts": "Filing Alerts Dashboard",
+  "compliance-score": "Compliance Score",
+  "field-permissions": "Field-Level Permissions",
+  "password-policy": "Password Policy",
+  "contact-queries": "Contact Queries",
 };
 
 // Role-based allowed nav keys
@@ -1348,6 +1524,45 @@ function UserProfileDropdown({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function MobileFAB({ onNavigate }: { onNavigate: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="lg:hidden fixed bottom-20 right-4 z-50">
+      {open && (
+        <div className="flex flex-col gap-2 mb-2">
+          {[
+            { label: "New Sales", view: "voucherSales" },
+            { label: "New Purchase", view: "voucherPurchase" },
+            { label: "New Journal", view: "voucher" },
+          ].map(({ label, view }) => (
+            <button
+              key={view}
+              type="button"
+              onClick={() => {
+                onNavigate(view);
+                setOpen(false);
+              }}
+              data-ocid={`fab.${view}.button`}
+              className="bg-card border border-border text-foreground text-xs px-3 py-2 rounded-full shadow-lg hover:bg-secondary transition-colors whitespace-nowrap"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        data-ocid="mobile.fab.button"
+        aria-label="Quick actions"
+        className="w-12 h-12 rounded-full bg-teal text-primary-foreground shadow-xl flex items-center justify-center text-xl font-bold hover:opacity-90 transition-opacity"
+      >
+        {open ? <X size={20} /> : <Plus size={20} />}
+      </button>
     </div>
   );
 }
@@ -1717,6 +1932,27 @@ export default function App() {
     if (view === "collabDashboard") return <CollaborationDashboard />;
     if (view === "voucherComments") return <VoucherComments />;
     if (view === "voucherTasks") return <VoucherTasks />;
+    // Phase 31: Event Ledger
+    if (view === "eventLog") return <EventLog />;
+    if (view === "eventReplay") return <EventReplay />;
+    if (view === "undoEngine") return <UndoEngine />;
+    if (view === "eventTimeline") return <EventTimeline />;
+    if (view === "snapshotManager") return <SnapshotManager />;
+    // Phase 33: Event Ledger Deep Enhancements
+    if (view === "timeTravelReport") return <TimeTravelReport />;
+    if (view === "undoRedoStack") return <UndoRedoStack />;
+    if (view === "diffViewer") return <DiffViewer />;
+    // Phase 33: Tally Import
+    if (view === "importWizard") return <ImportWizard />;
+    if (view === "migrationHistory") return <MigrationHistory />;
+    // Phase 33: Customization Engine
+    if (view === "jsonConfigEditor") return <JSONConfigEditor />;
+    if (view === "workflowBuilder") return <WorkflowBuilder />;
+    if (view === "customFields") return <CustomFields />;
+    // Phase 31: Doc Intelligence
+    if (view === "documentUpload") return <DocumentUpload />;
+    if (view === "documentRegister") return <DocumentRegister />;
+    if (view === "structuredEntry") return <StructuredEntry />;
     // Phase 25: Backup, Offline, Theme, Profile
     if (view === "offlineSync") return <OfflineSync />;
     if (view === "syncHistory") return <SyncHistory />;
@@ -1730,6 +1966,15 @@ export default function App() {
     if (view === "smartAlerts") return <SmartAlerts />;
     if (view === "ruleEngine") return <RuleEngine />;
     if (view === "makerChecker") return <MakerChecker />;
+    // Phase 32: Compliance Engine
+    if (view === "compliance-engine")
+      return <ComplianceEngineDashboard onNavigate={navigate} />;
+    if (view === "gst-error-detector") return <GSTErrorDetector />;
+    if (view === "filing-alerts") return <FilingAlertsDashboard />;
+    if (view === "compliance-score") return <ComplianceScore />;
+    if (view === "field-permissions") return <FieldPermissions />;
+    if (view === "password-policy") return <PasswordPolicy />;
+    if (view === "contact-queries") return <ContactQueries />;
     if (view.startsWith("voucher")) {
       const vType = VOUCHER_TYPE_MAP[view] || "Journal";
       return (
@@ -2159,6 +2404,39 @@ export default function App() {
         </div>
       )}
       <Toaster />
+      {/* Phase 32: Mobile Bottom Nav */}
+      {currentUser && (
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border flex items-center justify-around h-14 px-2">
+          {[
+            { icon: LayoutDashboard, label: "Dashboard", key: "gateway" },
+            { icon: Receipt, label: "Vouchers", key: "voucher" },
+            { icon: BarChart3, label: "Reports", key: "balanceSheet" },
+            { icon: Bell, label: "Alerts", key: "smartAlerts" },
+          ].map(({ icon: Icon, label, key: k }) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => navigate(k)}
+              data-ocid={`mobile_nav.${k}.link`}
+              className={`flex flex-col items-center gap-0.5 flex-1 py-2 transition-colors ${activeNav === k ? "text-teal" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Icon size={18} />
+              <span className="text-[9px]">{label}</span>
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            data-ocid="mobile_nav.menu.button"
+            className="flex flex-col items-center gap-0.5 flex-1 py-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Menu size={18} />
+            <span className="text-[9px]">Menu</span>
+          </button>
+        </nav>
+      )}
+      {/* Phase 32: Mobile FAB */}
+      {currentUser && activeCompany && <MobileFAB onNavigate={navigate} />}
     </div>
   );
 }
