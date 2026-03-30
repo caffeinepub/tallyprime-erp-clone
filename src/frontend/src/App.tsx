@@ -5,6 +5,7 @@ import {
   BookOpen,
   Briefcase,
   Building2,
+  ClipboardList,
   Database,
   DollarSign,
   FileText,
@@ -20,6 +21,7 @@ import {
   Receipt,
   Settings,
   Shield,
+  ShoppingCart,
   Sun,
   Target,
   TrendingUp,
@@ -79,9 +81,17 @@ import ProjectCostLedger from "./components/ProjectCostLedger";
 import ProjectDashboard from "./components/ProjectDashboard";
 import ProjectMaster from "./components/ProjectMaster";
 import ProjectPL from "./components/ProjectPL";
+import PurchaseOrderEntry from "./components/PurchaseOrderEntry";
+import PurchaseOrderList from "./components/PurchaseOrderList";
+import PurchaseOrderReceipt from "./components/PurchaseOrderReceipt";
+import PurchaseOrderRegister from "./components/PurchaseOrderRegister";
 import ReportBuilder from "./components/ReportBuilder";
 import RolePermissions from "./components/RolePermissions";
 import SalaryStructureSetup from "./components/SalaryStructureSetup";
+import SalesOrderDispatch from "./components/SalesOrderDispatch";
+import SalesOrderEntry from "./components/SalesOrderEntry";
+import SalesOrderList from "./components/SalesOrderList";
+import SalesOrderRegister from "./components/SalesOrderRegister";
 import ScheduledReports from "./components/ScheduledReports";
 import StockGroups from "./components/StockGroups";
 import StockItems from "./components/StockItems";
@@ -393,6 +403,85 @@ const NAV_ITEMS: NavItem[] = [
     icon: PieChart,
     fkey: null,
   },
+  // Phase 21: Customer/Vendor Portal
+  {
+    key: "__header_project",
+    label: "Project Costing",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "projectDashboard",
+    label: "Project Dashboard",
+    icon: BarChart3,
+    fkey: null,
+  },
+  {
+    key: "projectMaster",
+    label: "Project Master",
+    icon: Briefcase,
+    fkey: null,
+  },
+  {
+    key: "projectCostLedger",
+    label: "Cost Ledger",
+    icon: BookOpen,
+    fkey: null,
+  },
+  { key: "projectPL", label: "Project P&L", icon: TrendingUp, fkey: null },
+  {
+    key: "__header_customer_portal",
+    label: "Customer Portal",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "customerMaster",
+    label: "Customer Master",
+    icon: UserCheck,
+    fkey: null,
+  },
+  {
+    key: "customerLedger",
+    label: "Customer Ledger",
+    icon: BookOpen,
+    fkey: null,
+  },
+  {
+    key: "__header_vendor_portal",
+    label: "Vendor Portal",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "vendorMaster", label: "Vendor Master", icon: Users, fkey: null },
+  { key: "vendorLedger", label: "Vendor Ledger", icon: BookOpen, fkey: null },
+  // Phase 22: Purchase Orders
+  {
+    key: "__header_purchase_orders",
+    label: "Purchase Orders",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "poEntry", label: "Create PO", icon: ShoppingCart, fkey: null },
+  { key: "poList", label: "PO List", icon: ClipboardList, fkey: null },
+  { key: "poReceipt", label: "PO Receipt", icon: Receipt, fkey: null },
+  { key: "poRegister", label: "PO Register", icon: BarChart3, fkey: null },
+  // Phase 22: Sales Orders
+  {
+    key: "__header_sales_orders",
+    label: "Sales Orders",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  { key: "soEntry", label: "Create SO", icon: ShoppingCart, fkey: null },
+  { key: "soList", label: "SO List", icon: ClipboardList, fkey: null },
+  { key: "soDispatch", label: "SO Dispatch", icon: Truck, fkey: null },
+  { key: "soRegister", label: "SO Register", icon: BarChart3, fkey: null },
   {
     key: "__header_reports",
     label: "Reports",
@@ -594,6 +683,14 @@ const VIEW_LABELS: Record<string, string> = {
   customerLedger: "Customer Ledger",
   vendorMaster: "Vendor Master",
   vendorLedger: "Vendor Ledger",
+  poEntry: "Create Purchase Order",
+  poList: "Purchase Order List",
+  poReceipt: "PO Receipt",
+  poRegister: "PO Register",
+  soEntry: "Create Sales Order",
+  soList: "Sales Order List",
+  soDispatch: "SO Dispatch",
+  soRegister: "SO Register",
 };
 
 // Role-based allowed nav keys
@@ -664,6 +761,14 @@ const ROLE_ALLOWED_KEYS: Record<string, Set<string>> = {
     "customerLedger",
     "vendorMaster",
     "vendorLedger",
+    "poEntry",
+    "poList",
+    "poReceipt",
+    "poRegister",
+    "soEntry",
+    "soList",
+    "soDispatch",
+    "soRegister",
   ]),
   Auditor: new Set([
     "gateway",
@@ -687,6 +792,10 @@ const ROLE_ALLOWED_KEYS: Record<string, Set<string>> = {
     "projectPL",
     "customerLedger",
     "vendorLedger",
+    "poList",
+    "poRegister",
+    "soList",
+    "soRegister",
   ]),
   Viewer: new Set([
     "gateway",
@@ -1145,6 +1254,21 @@ export default function App() {
       return <VendorMaster company={activeCompany} />;
     if (view === "vendorLedger")
       return <VendorLedger company={activeCompany} />;
+    // Phase 22: Purchase Orders
+    if (view === "poEntry")
+      return <PurchaseOrderEntry company={activeCompany} />;
+    if (view === "poList") return <PurchaseOrderList company={activeCompany} />;
+    if (view === "poReceipt")
+      return <PurchaseOrderReceipt company={activeCompany} />;
+    if (view === "poRegister")
+      return <PurchaseOrderRegister company={activeCompany} />;
+    // Phase 22: Sales Orders
+    if (view === "soEntry") return <SalesOrderEntry company={activeCompany} />;
+    if (view === "soList") return <SalesOrderList company={activeCompany} />;
+    if (view === "soDispatch")
+      return <SalesOrderDispatch company={activeCompany} />;
+    if (view === "soRegister")
+      return <SalesOrderRegister company={activeCompany} />;
     if (view.startsWith("voucher")) {
       const vType = VOUCHER_TYPE_MAP[view] || "Journal";
       return (
@@ -1169,7 +1293,7 @@ export default function App() {
             HisabKitab Pro
           </span>
           <span className="text-[10px] text-muted-foreground font-mono ml-1">
-            v21.0
+            v22.0
           </span>
         </div>
 
@@ -1292,7 +1416,7 @@ export default function App() {
           {/* BOTTOM STATUS BAR */}
           <footer className="h-8 flex items-center px-4 gap-6 border-t border-border bg-secondary/30 flex-shrink-0">
             <span className="text-[10px] font-mono text-muted-foreground">
-              Ver. 20.0
+              Ver. 22.0
             </span>
             <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
               {[
