@@ -84,15 +84,15 @@ export default function CompanySelection({
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-full bg-background">
-      <div className="w-[640px]">
+    <div className="flex flex-col items-center justify-center min-h-full bg-background p-4 overflow-auto">
+      <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded bg-teal flex items-center justify-center">
+          <div className="w-10 h-10 rounded bg-teal flex items-center justify-center flex-shrink-0">
             <span className="text-primary-foreground font-bold text-lg">H</span>
           </div>
           <div>
-            <h1 className="text-[22px] font-bold text-foreground">
+            <h1 className="text-[18px] md:text-[22px] font-bold text-foreground">
               HisabKitab Pro
             </h1>
             <p className="text-[11px] text-muted-foreground">
@@ -103,7 +103,7 @@ export default function CompanySelection({
 
         {/* Companies List */}
         <div className="bg-card border border-border rounded-sm mb-4">
-          <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-secondary/50">
+          <div className="flex items-center justify-between px-3 md:px-4 py-2 border-b border-border bg-secondary/50">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Companies
             </span>
@@ -164,15 +164,15 @@ export default function CompanySelection({
                   type="button"
                   data-ocid={`company.item.${i + 1}`}
                   onClick={() => onSelectCompany(c)}
-                  className="flex-1 flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 cursor-pointer text-left"
+                  className="flex-1 flex items-center gap-3 px-3 md:px-4 py-3 hover:bg-secondary/50 cursor-pointer text-left"
                 >
-                  <div className="w-8 h-8 rounded-sm bg-teal/20 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-sm bg-teal/20 flex items-center justify-center flex-shrink-0">
                     <span className="text-teal text-[13px] font-bold">
                       {c.name[0]}
                     </span>
                   </div>
-                  <div className="flex-1">
-                    <div className="text-[13px] font-medium text-foreground">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-medium text-foreground truncate">
                       {c.name}
                     </div>
                     <div className="text-[11px] text-muted-foreground">
@@ -182,7 +182,7 @@ export default function CompanySelection({
                   </div>
                   <CheckCircle
                     size={14}
-                    className="text-teal opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="text-teal opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                   />
                 </button>
                 <button
@@ -196,7 +196,7 @@ export default function CompanySelection({
                   title="Alter Company (Alt+Z)"
                 >
                   <Edit2 size={11} />
-                  <span>Alter</span>
+                  <span className="hidden sm:inline">Alter</span>
                 </button>
               </div>
             ))}
@@ -205,14 +205,14 @@ export default function CompanySelection({
         {/* Create Form */}
         {showForm && (
           <div
-            className="bg-card border border-teal/40 rounded-sm p-4"
+            className="bg-card border border-teal/40 rounded-sm p-3 md:p-4"
             data-ocid="company.dialog"
           >
             <div className="text-[13px] font-semibold text-foreground mb-3 pb-2 border-b border-border">
               Create Company
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="md:col-span-2">
                 <label
                   htmlFor="co-name"
                   className="text-[11px] text-muted-foreground block mb-1"
@@ -294,7 +294,7 @@ export default function CompanySelection({
                   placeholder="29ABCDE1234F1Z5"
                 />
               </div>
-              <div className="col-span-2">
+              <div className="md:col-span-2">
                 <label
                   htmlFor="co-address"
                   className="text-[11px] text-muted-foreground block mb-1"
@@ -312,12 +312,12 @@ export default function CompanySelection({
                 />
               </div>
             </div>
-            <div className="flex gap-2 mt-4 justify-end">
+            <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:justify-end">
               <button
                 type="button"
                 data-ocid="company.cancel_button"
                 onClick={() => setShowForm(false)}
-                className="cmd-btn"
+                className="cmd-btn justify-center sm:justify-start"
               >
                 Cancel (ESC)
               </button>
@@ -326,7 +326,7 @@ export default function CompanySelection({
                 data-ocid="company.submit_button"
                 onClick={handleCreate}
                 disabled={createCompany.isPending || !form.name.trim()}
-                className="flex items-center gap-1 px-4 py-1 text-[11px] font-semibold bg-teal text-primary-foreground hover:bg-teal-bright disabled:opacity-50 transition-colors"
+                className="flex items-center justify-center gap-1 px-4 py-1.5 text-[11px] font-semibold bg-teal text-primary-foreground hover:bg-teal-bright disabled:opacity-50 transition-colors"
               >
                 {createCompany.isPending ? (
                   <Loader2 size={12} className="animate-spin" />
@@ -340,24 +340,24 @@ export default function CompanySelection({
         {/* Alter (Read-Only View) */}
         {alterCompany && (
           <div
-            className="bg-card border border-teal/40 rounded-sm p-4"
+            className="bg-card border border-teal/40 rounded-sm p-3 md:p-4"
             data-ocid="company.modal"
           >
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-border">
-              <span className="text-[13px] font-semibold text-foreground">
-                Alter Company — {alterCompany.name}
+              <span className="text-[13px] font-semibold text-foreground truncate pr-2">
+                Alter — {alterCompany.name}
               </span>
               <button
                 type="button"
                 data-ocid="company.close_button"
                 onClick={() => setAlterCompany(null)}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground flex-shrink-0"
               >
                 <X size={14} />
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="md:col-span-2">
                 <label
                   htmlFor="alt-name"
                   className="text-[11px] text-muted-foreground block mb-1"
@@ -427,7 +427,7 @@ export default function CompanySelection({
                   readOnly
                 />
               </div>
-              <div className="col-span-2">
+              <div className="md:col-span-2">
                 <label
                   htmlFor="alt-address"
                   className="text-[11px] text-muted-foreground block mb-1"
@@ -459,13 +459,13 @@ export default function CompanySelection({
           </div>
         )}
 
-        <div className="mt-3 text-[10px] text-muted-foreground text-center">
+        <div className="mt-3 text-[10px] text-muted-foreground text-center flex flex-wrap items-center justify-center gap-1">
           <span className="tally-key-badge">Alt+C</span> /{" "}
           <span className="tally-key-badge">Ctrl+N</span> /{" "}
-          <span className="tally-key-badge">F3</span> Create Company
-          <span className="mx-2">|</span>
-          <span className="tally-key-badge">Alt+Z</span> Alter Company
-          <span className="mx-2">|</span>
+          <span className="tally-key-badge">F3</span> Create
+          <span className="mx-1">|</span>
+          <span className="tally-key-badge">Alt+Z</span> Alter
+          <span className="mx-1">|</span>
           <span className="tally-key-badge">ESC</span> Close
         </div>
       </div>

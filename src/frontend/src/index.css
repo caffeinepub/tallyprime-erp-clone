@@ -116,7 +116,7 @@
   }
 
   .cmd-btn {
-    @apply flex items-center gap-1 px-2 py-1 text-[11px] font-medium border border-border/60 bg-card hover:bg-secondary cursor-pointer transition-colors;
+    @apply flex items-center gap-1 px-2 py-1 text-[11px] font-medium border border-border/60 bg-card hover:bg-secondary cursor-pointer transition-colors text-muted-foreground;
   }
 
   .tally-table th {
@@ -146,5 +146,21 @@
   .desktop-sidebar {
     width: 15vw !important;
     min-width: 15vw !important;
+  }
+}
+
+/* Phase 39: Light theme cmd-btn text color — gray so it's visible */
+[data-theme="light"] .cmd-btn {
+  color: #4b5563;
+}
+
+/* Phase 39: Hide scrollbar on mobile only */
+@media (max-width: 1023px) {
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
   }
 }

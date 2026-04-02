@@ -7,8 +7,10 @@ import {
   BookOpen,
   Briefcase,
   Building2,
+  Calculator,
   Calendar,
   Camera,
+  CheckSquare,
   ChevronDown,
   ClipboardEdit,
   ClipboardList,
@@ -40,6 +42,7 @@ import {
   Search,
   Settings,
   Shield,
+  ShoppingBag,
   ShoppingCart,
   Smartphone,
   Sun,
@@ -75,6 +78,7 @@ import BudgetVsActual from "./components/BudgetVsActual";
 import CashFlowStatement from "./components/CashFlowStatement";
 import ChequeManagement from "./components/ChequeManagement";
 import ChequeRegister from "./components/ChequeRegister";
+import CompanyBranding from "./components/CompanyBranding";
 import CompanySelection from "./components/CompanySelection";
 import ConsolidatedReports from "./components/ConsolidatedReports";
 // Phase 32: New components
@@ -97,7 +101,11 @@ import GSTR3BReport from "./components/GSTR3BReport";
 import GSTSettings from "./components/GSTSettings";
 import GSTVoucherEntry from "./components/GSTVoucherEntry";
 import GatewayHome from "./components/GatewayHome";
+// Phase 38: New components
+import GlobalSearch from "./components/GlobalSearch";
 import HSNMaster from "./components/HSNMaster";
+// Phase 40: New components
+import InvoiceCustomizer from "./components/InvoiceCustomizer";
 import InvoiceDispatch from "./components/InvoiceDispatch";
 import InvoiceTemplates from "./components/InvoiceTemplates";
 import LedgerList from "./components/LedgerList";
@@ -109,6 +117,10 @@ import PaySlip from "./components/PaySlip";
 import PaymentGatewayConfig from "./components/PaymentGatewayConfig";
 import PayrollRegister from "./components/PayrollRegister";
 import PayrollVoucherEntry from "./components/PayrollVoucherEntry";
+import PremiumFeatures, {
+  loadPremiumFeatures,
+} from "./components/PremiumFeatures";
+import type { PremiumFeatureState } from "./components/PremiumFeatures";
 import ProjectCostLedger from "./components/ProjectCostLedger";
 import ProjectDashboard from "./components/ProjectDashboard";
 import ProjectMaster from "./components/ProjectMaster";
@@ -117,6 +129,7 @@ import PurchaseOrderEntry from "./components/PurchaseOrderEntry";
 import PurchaseOrderList from "./components/PurchaseOrderList";
 import PurchaseOrderReceipt from "./components/PurchaseOrderReceipt";
 import PurchaseOrderRegister from "./components/PurchaseOrderRegister";
+import RemoteDatabaseConfig from "./components/RemoteDatabaseConfig";
 import ReportBuilder from "./components/ReportBuilder";
 import RolePermissions from "./components/RolePermissions";
 import RuleEngine from "./components/RuleEngine";
@@ -126,6 +139,7 @@ import SalesOrderEntry from "./components/SalesOrderEntry";
 import SalesOrderList from "./components/SalesOrderList";
 import SalesOrderRegister from "./components/SalesOrderRegister";
 import ScheduledReports from "./components/ScheduledReports";
+import ShareCompany from "./components/ShareCompany";
 import SmartAlerts from "./components/SmartAlerts";
 import StockGroups from "./components/StockGroups";
 import StockItems from "./components/StockItems";
@@ -142,6 +156,143 @@ import VendorMaster from "./components/VendorMaster";
 import VoiceVoucherEntry from "./components/VoiceVoucherEntry";
 import VoucherEntry from "./components/VoucherEntry";
 import WhatsAppConfig from "./components/WhatsAppConfig";
+
+// Sidebar hover tooltip descriptions (outside component for stability)
+const SIDEBAR_DESCRIPTIONS: Record<string, string> = {
+  ledgers:
+    "Create and manage ledger accounts grouped by account type (Assets, Liabilities, Income, Expense). Each ledger tracks its balance.",
+  voucher: "Journal Voucher (F7): Record adjustment entries between accounts.",
+  voucherSales:
+    "Sales Voucher (F8): Record sales transactions. Links to customer ledger and inventory.",
+  voucherPurchase:
+    "Purchase Voucher (F9): Record purchases from vendors with GST auto-calculation.",
+  voucherPayment:
+    "Payment Voucher (F5): Record outgoing payments to vendors or expenses.",
+  voucherReceipt:
+    "Receipt Voucher (F6): Record incoming payments from customers.",
+  voucherContra:
+    "Contra Voucher (F4): Record bank-to-cash or cash-to-bank transfers.",
+  balanceSheet:
+    "Balance Sheet: Shows Assets vs Liabilities + Equity as of today. Drill down for details.",
+  plAccount:
+    "Profit & Loss Account: Income minus Expenses = Net Profit/Loss for the period.",
+  trialBalance:
+    "Trial Balance: All ledger closing balances. Debit total must equal Credit total.",
+  dayBook:
+    "Day Book: Chronological record of all vouchers entered for any selected date.",
+  gstr1:
+    "GSTR-1: Outward supplies report. Submit to GST portal by 11th of every month.",
+  gstr3b: "GSTR-3B: Summary GST return. Submit by 20th of every month.",
+  gstVoucher:
+    "GST Voucher: Record sales/purchase with automatic GST calculation (CGST, SGST, IGST).",
+  hsnMaster:
+    "HSN/SAC Master: Manage Harmonized System of Nomenclature codes and their GST rates.",
+  gstSettings:
+    "GST Settings: Configure your company GST registration type, state code, and GSTIN.",
+  stockGroups:
+    "Stock Groups: Categorize your inventory items into logical groups for reporting.",
+  stockItems:
+    "Stock Items: Create and manage individual inventory products with opening stock.",
+  stockSummary:
+    "Stock Summary: View current stock levels, opening and closing balances for all items.",
+  stockLedger:
+    "Stock Ledger: Detailed movement history (in/out) for any stock item.",
+  employeeMaster:
+    "Employee Master: Manage employee records including PAN, bank details and department.",
+  payrollVoucher:
+    "Process Payroll: Generate salary vouchers with HRA, PF, ESI and TDS calculations.",
+  bankAccounts:
+    "Bank Accounts: Link your company bank accounts to ledgers for reconciliation.",
+  bankReconciliation:
+    "Bank Reconciliation: Match your books with bank statement to find differences.",
+  fixedAssetMaster:
+    "Fixed Assets: Track company assets with depreciation calculation and disposal.",
+  costCentreMaster:
+    "Cost Centres: Allocate expenses to departments or projects for analysis.",
+  userManagement:
+    "User Management: Create and manage user accounts with role-based permissions.",
+  aiSettings:
+    "AI Settings: Configure OpenAI and Gemini API keys for AI-powered narration, anomaly detection and report explanations.",
+  invoiceTemplates:
+    "Invoice Templates: Choose from Classic, Modern, or GST-Compliant invoice templates for printing.",
+  invoiceCustomizer:
+    "Invoice Customizer: Upload company logo, signature, set accent color, toggle fields, and preview live.",
+  companyBranding:
+    "Company Branding: Upload your company logo and set brand colors used across the app and invoices.",
+  shareCompany:
+    "Share Company: Share your company data via encoded link, QR code, or download as PDF report.",
+  remoteDatabase:
+    "Remote Database Bridge: Connect to your remote MySQL or SQLite database via HTTP bridge for data sync.",
+  eventTimeline:
+    "Event Timeline: Visual timeline of all accounting events. Click any event to see full details.",
+  eventLog:
+    "Event Log: Complete log of all system events with filtering, undo, and export capabilities.",
+  documentUpload:
+    "OCR Invoice Scanner: Upload an invoice image and extract data automatically using AI.",
+  analyticsDashboard:
+    "Business Insights: KPI dashboard with revenue trends, top customers, and financial metrics.",
+  advancedAnalytics:
+    "Premium Dashboard: Drag-and-drop analytics widgets including gauges, sparklines, and alerts.",
+  smartAlerts:
+    "Smart Alerts: Get notified about low stock, overdue payments, GST deadlines and cash flow risks.",
+  ruleEngine:
+    "Rule Engine: Define automation rules like auto-apply GST, approval thresholds, recurring entries.",
+  makerChecker:
+    "Maker-Checker: Approval workflow for vouchers — maker creates, checker approves or rejects.",
+  budgetMaster:
+    "Budget Master: Set annual budgets for ledger groups and monitor actual vs planned spending.",
+  hrDashboard:
+    "HR Dashboard: Overview of employee strength, attendance summary, leaves and payroll.",
+  posTerminal:
+    "POS Terminal: Retail billing with product search, cart, discount and payment modes.",
+  branchMaster:
+    "Branch Master: Create and manage multiple business branches with separate GSTINs.",
+  "compliance-engine":
+    "Compliance Engine: Automated GST error detection, filing alerts, and compliance scoring.",
+  leadMaster:
+    "CRM Lead: Create and track sales leads with source, status, and follow-up date.",
+  projectDashboard:
+    "Project Costing: Track project-wise income, expenses and profitability in real time.",
+  customerMaster:
+    "Customer Master: Manage customer accounts with GST details and contact information.",
+  vendorMaster:
+    "Vendor Master: Manage vendor accounts with GSTIN, payment terms and contact info.",
+  poEntry:
+    "Create Purchase Order: Raise a PO to a vendor with items, rates and delivery date.",
+  soEntry:
+    "Create Sales Order: Record a sales order from a customer before billing.",
+  whatsAppConfig:
+    "WhatsApp Config: Set up WhatsApp Business API to send invoices and reminders to customers.",
+  dataManagement:
+    "Backup & Export: Download all company data as JSON/CSV for offline backup or migration.",
+  exportCenter: "Export Center: Export any report to PDF, Excel or CSV format.",
+  offlineSync:
+    "Offline Queue: View data entered offline that is waiting to sync to the cloud backend.",
+  themeCustomizer:
+    "Theme Customizer: Switch between 8 color themes to personalize the app look.",
+  customShortcuts:
+    "My Shortcuts: Define personal keyboard shortcuts that only work for your login.",
+  bankStatementImport:
+    "Bank Statement Import: Upload bank CSV and auto-match transactions for reconciliation.",
+  drillDownExplorer:
+    "Drill-Down Explorer: Click any account to see individual transactions behind the balance.",
+  cashFlowForecast:
+    "Cash Flow Forecast: Predict 30/60/90 day cash position based on current trends.",
+  auditLogViewer:
+    "Audit Log Viewer: Immutable, tamper-proof log of all data changes with timestamps.",
+  gstFilingDashboard:
+    "GST Filing Dashboard: Track due dates and filing status for GSTR-1, 3B and GSTR-9.",
+  jsonConfigEditor:
+    "Customization Engine: Edit the app configuration in JSON to customize workflows and fields.",
+  timeTravelReport:
+    "Time Travel Report: Rebuild the Trial Balance for any past date from accounting events.",
+  importWizard:
+    "Tally Import Wizard: Migrate data from Tally ERP 9 XML or CSV export files.",
+  "mobile-barcode-scan":
+    "Barcode Scanner: Use your device camera to scan product barcodes for POS billing.",
+  "ecommerce-dashboard":
+    "E-Commerce Dashboard: View online order KPIs, revenue and fulfillment metrics.",
+};
 import CashFlowForecast from "./components/advanced-analytics/CashFlowForecast";
 // Phase 36: Advanced Analytics Drill-Down
 import DrillDownExplorer from "./components/advanced-analytics/DrillDownExplorer";
@@ -149,6 +300,8 @@ import ExpenseBreakdown from "./components/advanced-analytics/ExpenseBreakdown";
 import PLTrend from "./components/advanced-analytics/PLTrend";
 import AutoReconciliation from "./components/advanced-banking/AutoReconciliation";
 import BRSReport from "./components/advanced-banking/BRSReport";
+import BRSSmartMatch from "./components/advanced-banking/BRSSmartMatch";
+import BankAnalytics from "./components/advanced-banking/BankAnalytics";
 // Phase 36: Advanced Banking
 import BankStatementImport from "./components/advanced-banking/BankStatementImport";
 import ChequeRegisterAdv from "./components/advanced-banking/ChequeRegisterAdv";
@@ -157,6 +310,10 @@ import AMCTracker from "./components/asset-maintenance/AMCTracker";
 import MaintenanceLog from "./components/asset-maintenance/MaintenanceLog";
 // Phase 35: Asset Maintenance
 import MaintenanceSchedule from "./components/asset-maintenance/MaintenanceSchedule";
+import AuditLogViewer from "./components/audit-compliance/AuditLogViewer";
+import ComplianceChecklist from "./components/audit-compliance/ComplianceChecklist";
+import IncomeTaxComputation from "./components/audit-compliance/IncomeTaxComputation";
+import TDSManagement from "./components/audit-compliance/TDSManagement";
 import BranchMaster from "./components/branches/BranchMaster";
 import BranchReports from "./components/branches/BranchReports";
 import BranchTransfer from "./components/branches/BranchTransfer";
@@ -184,6 +341,12 @@ import WorkflowBuilder from "./components/customization/WorkflowBuilder";
 import DocumentRegister from "./components/doc-intelligence/DocumentRegister";
 import DocumentUpload from "./components/doc-intelligence/DocumentUpload";
 import StructuredEntry from "./components/doc-intelligence/StructuredEntry";
+import AutoSalesEntry from "./components/ecommerce/AutoSalesEntry";
+// Phase 37: E-Commerce Integration
+import ECommerceDashboard from "./components/ecommerce/ECommerceDashboard";
+import InventorySync from "./components/ecommerce/InventorySync";
+import OrderImport from "./components/ecommerce/OrderImport";
+import OrderProfitability from "./components/ecommerce/OrderProfitability";
 import DiffViewer from "./components/event-ledger/DiffViewer";
 // Phase 31: Event Ledger
 import EventLog from "./components/event-ledger/EventLog";
@@ -205,6 +368,10 @@ import HRDashboard from "./components/hr/HRDashboard";
 import HREmployeeMaster from "./components/hr/HREmployeeMaster";
 import LeaveManagement from "./components/hr/LeaveManagement";
 import SalarySlip from "./components/hr/SalarySlip";
+// Phase 37: Advanced Mobile
+import BarcodeScanner from "./components/mobile/BarcodeScanner";
+import MobileApprovals from "./components/mobile/MobileApprovals";
+import MobileReports from "./components/mobile/MobileReports";
 import OfflineSync from "./components/offline/OfflineSync";
 import SyncHistory from "./components/offline/SyncHistory";
 // Phase 24: POS
@@ -225,6 +392,12 @@ import SubscriptionRegister from "./components/subscriptions/SubscriptionRegiste
 // Phase 33: Tally Import
 import ImportWizard from "./components/tally-import/ImportWizard";
 import MigrationHistory from "./components/tally-import/MigrationHistory";
+import BulkSend from "./components/whatsapp-automation/BulkSend";
+import DeliveryLog from "./components/whatsapp-automation/DeliveryLog";
+import LedgerSummaryWhatsApp from "./components/whatsapp-automation/LedgerSummaryWhatsApp";
+import ScheduledQueue from "./components/whatsapp-automation/ScheduledQueue";
+// Phase 37: WhatsApp Automation
+import WhatsAppDashboard from "./components/whatsapp-automation/WhatsAppDashboard";
 import { loadSavedTheme } from "./lib/themeManager";
 import type { AppUser } from "./types/rbac";
 import { logAuditEvent } from "./utils/auditLog";
@@ -884,6 +1057,13 @@ const NAV_ITEMS: NavItem[] = [
     fkey: null,
     adminOnly: true,
   },
+  {
+    key: "premiumFeatures",
+    label: "Premium Features",
+    icon: Settings,
+    fkey: null,
+    adminOnly: true,
+  },
   // Phase 9: Data Management
   {
     key: "__header_data_mgmt",
@@ -915,6 +1095,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: FileText,
     fkey: null,
   },
+  // Phase 40: Invoice Customizer
+  {
+    key: "invoiceCustomizer",
+    label: "Invoice Customizer",
+    icon: Settings,
+    fkey: null,
+  },
   // Phase 12: Integrations
   {
     key: "__header_integrations",
@@ -941,6 +1128,25 @@ const NAV_ITEMS: NavItem[] = [
     key: "whatsAppConfig",
     label: "WhatsApp Config",
     icon: MessageCircle,
+    fkey: null,
+  },
+  // Phase 40: Company Branding, Share, Remote DB
+  {
+    key: "companyBranding",
+    label: "Company Branding",
+    icon: Upload,
+    fkey: null,
+  },
+  {
+    key: "shareCompany",
+    label: "Share Company",
+    icon: QrCode,
+    fkey: null,
+  },
+  {
+    key: "remoteDatabase",
+    label: "Remote Database",
+    icon: Database,
     fkey: null,
   },
   // Phase 10: Audit Trail (Admin only)
@@ -1182,6 +1388,19 @@ const NAV_ITEMS: NavItem[] = [
     fkey: null,
   },
   { key: "brsReport", label: "BRS Report", icon: BarChart2, fkey: null },
+  // Phase 38: Advanced Banking additions
+  {
+    key: "bankAnalytics",
+    label: "Bank Analytics",
+    icon: BarChart2,
+    fkey: null,
+  },
+  {
+    key: "brsSmartMatch",
+    label: "BRS Smart Match",
+    icon: RefreshCw,
+    fkey: null,
+  },
   // Phase 35: Subscriptions
   {
     key: "__header_subscriptions",
@@ -1203,6 +1422,145 @@ const NAV_ITEMS: NavItem[] = [
     fkey: null,
   },
   { key: "renewalAlerts", label: "Renewal Alerts", icon: Bell, fkey: null },
+  // Phase 37: E-Commerce
+  {
+    key: "__header_ecommerce",
+    label: "E-Commerce",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "ecommerce-dashboard",
+    label: "Dashboard",
+    icon: ShoppingBag,
+    fkey: null,
+  },
+  {
+    key: "ecommerce-order-import",
+    label: "Order Import",
+    icon: Upload,
+    fkey: null,
+  },
+  {
+    key: "ecommerce-auto-sales",
+    label: "Auto Sales Entry",
+    icon: ShoppingCart,
+    fkey: null,
+  },
+  {
+    key: "ecommerce-inventory-sync",
+    label: "Inventory Sync",
+    icon: RefreshCw,
+    fkey: null,
+  },
+  {
+    key: "ecommerce-profitability",
+    label: "Profitability Report",
+    icon: TrendingUp,
+    fkey: null,
+  },
+  // Phase 37: WhatsApp Automation
+  {
+    key: "__header_wa_automation",
+    label: "WhatsApp Automation",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "whatsapp-dashboard",
+    label: "WA Dashboard",
+    icon: MessageCircle,
+    fkey: null,
+  },
+  {
+    key: "whatsapp-bulk-send",
+    label: "Bulk Send",
+    icon: MessageSquare,
+    fkey: null,
+  },
+  {
+    key: "whatsapp-ledger-send",
+    label: "Ledger Summary",
+    icon: BookOpen,
+    fkey: null,
+  },
+  {
+    key: "whatsapp-scheduled",
+    label: "Scheduled Queue",
+    icon: Clock,
+    fkey: null,
+  },
+  {
+    key: "whatsapp-delivery-log",
+    label: "Delivery Log",
+    icon: History,
+    fkey: null,
+  },
+  // Phase 37: Advanced Mobile
+  {
+    key: "__header_adv_mobile",
+    label: "Advanced Mobile",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+  },
+  {
+    key: "mobile-barcode-scan",
+    label: "Barcode Scanner",
+    icon: QrCode,
+    fkey: null,
+  },
+  {
+    key: "mobile-approvals",
+    label: "Mobile Approvals",
+    icon: UserCheck,
+    fkey: null,
+  },
+  {
+    key: "mobile-reports",
+    label: "Mobile Reports",
+    icon: BarChart2,
+    fkey: null,
+  },
+  // Phase 38: Audit & Compliance
+  {
+    key: "__header_audit_compliance",
+    label: "Audit & Compliance",
+    icon: null,
+    fkey: null,
+    isHeader: true,
+    adminOnly: true,
+  },
+  {
+    key: "auditLogViewer",
+    label: "Audit Log Viewer",
+    icon: Shield,
+    fkey: null,
+    adminOnly: true,
+  },
+  {
+    key: "tdsManagement",
+    label: "TDS Management",
+    icon: FileText,
+    fkey: null,
+    adminOnly: true,
+  },
+  {
+    key: "incomeTaxComputation",
+    label: "Income Tax Computation",
+    icon: Calculator,
+    fkey: null,
+    adminOnly: true,
+  },
+  {
+    key: "complianceChecklist",
+    label: "Compliance Checklist",
+    icon: CheckSquare,
+    fkey: null,
+    adminOnly: true,
+  },
 ];
 
 const VOUCHER_TYPE_MAP: Record<string, string> = {
@@ -1337,6 +1695,35 @@ const VIEW_LABELS: Record<string, string> = {
   "field-permissions": "Field-Level Permissions",
   "password-policy": "Password Policy",
   "contact-queries": "Contact Queries",
+  // Phase 37: E-Commerce
+  "ecommerce-dashboard": "E-Commerce Dashboard",
+  "ecommerce-order-import": "Order Import",
+  "ecommerce-auto-sales": "Auto Sales Entry",
+  "ecommerce-inventory-sync": "Inventory Sync",
+  "ecommerce-profitability": "Order Profitability Report",
+  // Phase 37: WhatsApp Automation
+  "whatsapp-dashboard": "WhatsApp Dashboard",
+  "whatsapp-bulk-send": "Bulk Send",
+  "whatsapp-ledger-send": "Ledger Summary Send",
+  "whatsapp-scheduled": "Scheduled Queue",
+  "whatsapp-delivery-log": "Delivery Log",
+  // Phase 37: Advanced Mobile
+  "mobile-barcode-scan": "Barcode Scanner",
+  "mobile-approvals": "Mobile Approvals",
+  "mobile-reports": "Mobile Reports",
+  // Phase 38
+  bankAnalytics: "Bank Analytics",
+  brsSmartMatch: "BRS Smart Match",
+  auditLogViewer: "Audit Log Viewer",
+  tdsManagement: "TDS Management",
+  incomeTaxComputation: "Income Tax Computation",
+  complianceChecklist: "Compliance Checklist",
+  premiumFeatures: "Premium Features",
+  // Phase 40
+  invoiceCustomizer: "Invoice Customizer",
+  companyBranding: "Company Branding",
+  shareCompany: "Share Company",
+  remoteDatabase: "Remote Database Bridge",
 };
 
 // Role-based allowed nav keys
@@ -1693,8 +2080,37 @@ function UserProfileDropdown({
 
 function MobileFAB({ onNavigate }: { onNavigate: (v: string) => void }) {
   const [open, setOpen] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCameraBill = () => {
+    cameraInputRef.current?.click();
+    setOpen(false);
+  };
+
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Store captured image and navigate to document upload for OCR
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const b64 = ev.target?.result as string;
+        localStorage.setItem("hk_camera_bill_capture", b64);
+        onNavigate("documentUpload");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   return (
     <div className="lg:hidden fixed bottom-20 right-4 z-50">
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleCameraCapture}
+      />
       {open && (
         <div className="flex flex-col gap-2 mb-2">
           {[
@@ -1715,6 +2131,14 @@ function MobileFAB({ onNavigate }: { onNavigate: (v: string) => void }) {
               {label}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={handleCameraBill}
+            data-ocid="fab.camera_bill.button"
+            className="bg-card border border-teal/40 text-teal text-xs px-3 py-2 rounded-full shadow-lg hover:bg-teal/10 transition-colors whitespace-nowrap flex items-center gap-1.5"
+          >
+            <Camera size={12} /> Camera Bill
+          </button>
         </div>
       )}
       <button
@@ -1756,8 +2180,38 @@ export default function App() {
       return next;
     });
   };
+
+  // Phase 40: Sidebar hover tooltip state
+  const [hoveredNav, setHoveredNav] = useState<{
+    key: string;
+    label: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  // Phase 38: Premium features state
+  const [premiumFeatures, setPremiumFeatures] = useState<PremiumFeatureState>(
+    () => loadPremiumFeatures(),
+  );
+
+  // Listen for premium feature changes
+  useEffect(() => {
+    const handler = () => setPremiumFeatures(loadPremiumFeatures());
+    window.addEventListener("premiumFeaturesChanged", handler);
+    return () => window.removeEventListener("premiumFeaturesChanged", handler);
+  }, []);
+
   // Phase 26: GoTo/Help modals
   const [goToOpen, setGoToOpen] = useState(false);
+
+  // Phase 39: Auto fullscreen on desktop for app-like feel
+  useEffect(() => {
+    const isDesktop = window.innerWidth >= 1024;
+    if (isDesktop && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  }, []);
+
   const [helpOpen, setHelpOpen] = useState(false);
 
   // Phase 25: online/offline status
@@ -1928,6 +2382,24 @@ export default function App() {
             );
           }}
         />
+        {/* Phase 40: Sidebar tooltip portal */}
+        {hoveredNav && SIDEBAR_DESCRIPTIONS[hoveredNav.key] && (
+          <div
+            className="fixed z-[9999] hidden lg:block max-w-xs bg-popover border border-border shadow-lg p-3 pointer-events-none"
+            style={{
+              left: hoveredNav.x,
+              top: hoveredNav.y,
+              transform: "translateY(-4px)",
+            }}
+          >
+            <p className="text-[11px] font-semibold text-foreground mb-1">
+              {hoveredNav.label}
+            </p>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              {SIDEBAR_DESCRIPTIONS[hoveredNav.key]}
+            </p>
+          </div>
+        )}
         <Toaster />
       </div>
     );
@@ -1945,7 +2417,49 @@ export default function App() {
     );
   }
 
-  const filteredNavItems = getFilteredNavItems(currentUser.role);
+  const filteredNavItems = (() => {
+    const base = getFilteredNavItems(currentUser.role);
+    // Phase 38: Filter by premium features
+    const PREMIUM_SECTION_MAP: Record<string, keyof PremiumFeatureState> = {
+      __header_ai_tools: "aiTools",
+      __header_wa_automation: "whatsappAutomation",
+      __header_docintel: "docIntelligence",
+      __header_ecommerce: "ecommerce",
+      __header_eventledger: "eventLedger",
+      __header_compliance_engine: "smartCompliance",
+      __header_customization: "customizationEngine",
+      __header_tallyimport: "tallyImport",
+      __header_adv_analytics: "advancedAnalytics",
+      __header_subscriptions: "subscriptionBilling",
+      __header_asset_maint: "assetMaintenance",
+      __header_project: "projectCosting",
+      __header_branches: "multiBranch",
+      __header_crm: "crm",
+      __header_adv_mobile: "advancedMobile",
+    };
+    const result: typeof base = [];
+    let skipUntilHeader = false;
+    let _currentFeatureKey: keyof PremiumFeatureState | null = null;
+    for (const item of base) {
+      if (item.isHeader) {
+        const featureKey = PREMIUM_SECTION_MAP[item.key];
+        if (featureKey !== undefined) {
+          if (!premiumFeatures[featureKey]) {
+            skipUntilHeader = true;
+            _currentFeatureKey = featureKey;
+            continue;
+          }
+        }
+        skipUntilHeader = false;
+        _currentFeatureKey = null;
+        result.push(item);
+        continue;
+      }
+      if (skipUntilHeader) continue;
+      result.push(item);
+    }
+    return result;
+  })();
 
   const renderMain = () => {
     if (!activeCompany) return null;
@@ -2178,6 +2692,23 @@ export default function App() {
     if (view === "recurringTemplates") return <RecurringTemplates />;
     if (view === "subscriptionRegister") return <SubscriptionRegister />;
     if (view === "renewalAlerts") return <RenewalAlerts />;
+    // Phase 37: E-Commerce
+    if (view === "ecommerce-dashboard")
+      return <ECommerceDashboard onNavigate={navigate} />;
+    if (view === "ecommerce-order-import") return <OrderImport />;
+    if (view === "ecommerce-auto-sales") return <AutoSalesEntry />;
+    if (view === "ecommerce-inventory-sync") return <InventorySync />;
+    if (view === "ecommerce-profitability") return <OrderProfitability />;
+    // Phase 37: WhatsApp Automation
+    if (view === "whatsapp-dashboard") return <WhatsAppDashboard />;
+    if (view === "whatsapp-bulk-send") return <BulkSend />;
+    if (view === "whatsapp-ledger-send") return <LedgerSummaryWhatsApp />;
+    if (view === "whatsapp-scheduled") return <ScheduledQueue />;
+    if (view === "whatsapp-delivery-log") return <DeliveryLog />;
+    // Phase 37: Advanced Mobile
+    if (view === "mobile-barcode-scan") return <BarcodeScanner />;
+    if (view === "mobile-approvals") return <MobileApprovals />;
+    if (view === "mobile-reports") return <MobileReports />;
     // Phase 36: Advanced Banking
     if (view === "bankStatementImport") return <BankStatementImport />;
     if (view === "autoReconciliation") return <AutoReconciliation />;
@@ -2189,6 +2720,22 @@ export default function App() {
     if (view === "cashFlowForecast") return <CashFlowForecast />;
     if (view === "expenseBreakdown") return <ExpenseBreakdown />;
     if (view === "plTrend") return <PLTrend />;
+    // Phase 38: Advanced Banking additions
+    if (view === "bankAnalytics") return <BankAnalytics />;
+    if (view === "brsSmartMatch") return <BRSSmartMatch />;
+    // Phase 38: Audit & Compliance
+    if (view === "auditLogViewer") return <AuditLogViewer />;
+    if (view === "tdsManagement") return <TDSManagement />;
+    if (view === "incomeTaxComputation") return <IncomeTaxComputation />;
+    if (view === "complianceChecklist") return <ComplianceChecklist />;
+    // Phase 38: Premium Features
+    if (view === "premiumFeatures") return <PremiumFeatures />;
+    // Phase 40: New features
+    if (view === "invoiceCustomizer") return <InvoiceCustomizer />;
+    if (view === "companyBranding") return <CompanyBranding />;
+    if (view === "shareCompany")
+      return <ShareCompany company={activeCompany} />;
+    if (view === "remoteDatabase") return <RemoteDatabaseConfig />;
     if (view.startsWith("voucher")) {
       const vType = VOUCHER_TYPE_MAP[view] || "Journal";
       return (
@@ -2248,6 +2795,20 @@ export default function App() {
                 data-ocid={`nav.${item.label.toLowerCase().replace(/[^a-z0-9]/g, "_")}.link`}
                 className={`tally-menu-item w-full relative ${isActive ? "active border-l-2 border-teal" : "border-l-2 border-transparent"}`}
                 onClick={() => navigate(item.key)}
+                onMouseEnter={(e) => {
+                  if (SIDEBAR_DESCRIPTIONS[item.key]) {
+                    const rect = (
+                      e.currentTarget as HTMLElement
+                    ).getBoundingClientRect();
+                    setHoveredNav({
+                      key: item.key,
+                      label: item.label,
+                      x: rect.right + 8,
+                      y: rect.top,
+                    });
+                  }
+                }}
+                onMouseLeave={() => setHoveredNav(null)}
               >
                 {Icon && (
                   <Icon
@@ -2293,26 +2854,29 @@ export default function App() {
             HKPro
           </span>
           <span className="text-[10px] text-muted-foreground font-mono ml-1">
-            v28.0
+            v39.0
           </span>
         </div>
 
         <div className="h-6 w-px bg-border" />
 
-        <div className="hidden md:flex items-center gap-2 flex-1 min-w-0">
+        <div className="hidden lg:flex items-center gap-2 flex-shrink-0 max-w-[220px]">
           <Building2 size={13} className="text-teal flex-shrink-0" />
-          <span className="text-[12px] text-muted-foreground flex-shrink-0">
-            Company:
-          </span>
-          <span className="text-[12px] font-semibold text-foreground truncate">
-            {activeCompany?.name}
-          </span>
-          {activeCompany && (
-            <span className="text-[10px] text-muted-foreground flex-shrink-0">
-              (FY {activeCompany.financialYearStart})
+          <div className="flex flex-col min-w-0">
+            <span className="text-[12px] font-semibold text-foreground truncate leading-tight max-w-[160px]">
+              {activeCompany?.name ?? "No Company"}
             </span>
-          )}
+            {activeCompany && (
+              <span className="text-[9px] text-muted-foreground leading-tight">
+                FY: {activeCompany.financialYearStart} to{" "}
+                {activeCompany.financialYearEnd}
+              </span>
+            )}
+          </div>
         </div>
+
+        {/* Phase 38: Global Search */}
+        <GlobalSearch navItems={NAV_ITEMS} onNavigate={navigate} />
 
         <div className="flex-1" />
 
@@ -2336,6 +2900,28 @@ export default function App() {
           title={isOnline ? "Online" : "Offline"}
           className={`w-2.5 h-2.5 rounded-full border border-background flex-shrink-0 ${isOnline ? "bg-green-500" : "bg-red-500"}`}
         />
+        {/* Phase 39: Mobile Search Icon */}
+        <button
+          type="button"
+          onClick={() => setGoToOpen(true)}
+          className="lg:hidden w-8 h-8 flex items-center justify-center rounded-sm hover:bg-secondary/60 transition-colors"
+          title="Search"
+          data-ocid="app.mobile_search.button"
+          aria-label="Search"
+        >
+          <Search size={16} className="text-foreground" />
+        </button>
+        {/* Phase 38: Notification Bell with badge */}
+        <button
+          type="button"
+          onClick={() => navigate("notifications")}
+          className="relative w-8 h-8 flex items-center justify-center rounded-sm hover:bg-secondary/60 transition-colors"
+          title="Notifications"
+          data-ocid="app.notifications.button"
+        >
+          <Bell size={15} className="text-muted-foreground" />
+          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-topbar" />
+        </button>
         <UserProfileDropdown
           activeCompany={activeCompany}
           theme={theme}
@@ -2346,6 +2932,34 @@ export default function App() {
           profilePhoto={profilePhoto}
         />
       </header>
+
+      {/* Phase 38: Breadcrumb */}
+      {activeCompany && view !== "gateway" && (
+        <div className="hidden lg:flex h-7 items-center px-3 gap-1.5 border-b border-border/50 bg-secondary/20 flex-shrink-0">
+          <span className="text-[10px] text-muted-foreground">
+            HisabKitab Pro
+          </span>
+          <span className="text-[10px] text-muted-foreground">/</span>
+          <span className="text-[10px] text-muted-foreground">
+            {NAV_ITEMS.find(
+              (n) => !n.isHeader && n.key === view && !n.key.startsWith("__"),
+            )
+              ? (() => {
+                  let section = "";
+                  for (const item of NAV_ITEMS) {
+                    if (item.isHeader) section = item.label;
+                    if (!item.isHeader && item.key === view) return section;
+                  }
+                  return "General";
+                })()
+              : "General"}
+          </span>
+          <span className="text-[10px] text-muted-foreground">/</span>
+          <span className="text-[10px] font-medium text-foreground">
+            {VIEW_LABELS[view] || view}
+          </span>
+        </div>
+      )}
 
       {/* BODY */}
       <div className="flex flex-1 overflow-hidden relative">
@@ -2451,7 +3065,9 @@ export default function App() {
           </div>
 
           {/* Content Area */}
-          <main className="flex-1 overflow-auto relative">{renderMain()}</main>
+          <main className="flex-1 overflow-auto relative pb-16 lg:pb-0">
+            {renderMain()}
+          </main>
 
           {/* BOTTOM STATUS BAR */}
           <footer className="h-8 flex items-center px-4 gap-6 border-t border-border bg-secondary/30 flex-shrink-0">
@@ -2636,7 +3252,7 @@ export default function App() {
       <Toaster />
       {/* Phase 32: Mobile Bottom Nav */}
       {currentUser && (
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border flex items-center justify-around h-14 px-2">
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border flex items-center justify-around h-16 px-2 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
           {[
             { icon: LayoutDashboard, label: "Dashboard", key: "gateway" },
             { icon: Receipt, label: "Vouchers", key: "voucher" },
@@ -2648,20 +3264,20 @@ export default function App() {
               type="button"
               onClick={() => navigate(k)}
               data-ocid={`mobile_nav.${k}.link`}
-              className={`flex flex-col items-center gap-0.5 flex-1 py-2 transition-colors ${activeNav === k ? "text-teal" : "text-muted-foreground hover:text-foreground"}`}
+              className={`flex flex-col items-center gap-1 flex-1 pb-1 pt-2 transition-colors ${activeNav === k ? "text-teal" : "text-muted-foreground hover:text-foreground"}`}
             >
-              <Icon size={18} />
-              <span className="text-[9px]">{label}</span>
+              <Icon size={22} />
+              <span className="text-[10px] font-medium">{label}</span>
             </button>
           ))}
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
             data-ocid="mobile_nav.menu.button"
-            className="flex flex-col items-center gap-0.5 flex-1 py-2 text-muted-foreground hover:text-foreground transition-colors"
+            className="flex flex-col items-center gap-1 flex-1 pb-1 pt-2 text-muted-foreground hover:text-foreground transition-colors"
           >
-            <Menu size={18} />
-            <span className="text-[9px]">Menu</span>
+            <Menu size={22} />
+            <span className="text-[10px] font-medium">Menu</span>
           </button>
         </nav>
       )}
