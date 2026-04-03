@@ -18,9 +18,11 @@ import {
   Code,
   Database,
   DollarSign,
+  Download,
   FileText,
   GitBranch,
   GitCompare,
+  HelpCircle,
   History,
   Keyboard,
   Landmark,
@@ -28,6 +30,7 @@ import {
   LayoutDashboard,
   Lock,
   LogOut,
+  Mail,
   Menu,
   MessageCircle,
   MessageSquare,
@@ -35,6 +38,7 @@ import {
   Moon,
   PieChart,
   Plus,
+  Printer,
   QrCode,
   Receipt,
   RefreshCw,
@@ -161,17 +165,17 @@ import WhatsAppConfig from "./components/WhatsAppConfig";
 const SIDEBAR_DESCRIPTIONS: Record<string, string> = {
   ledgers:
     "Create and manage ledger accounts grouped by account type (Assets, Liabilities, Income, Expense). Each ledger tracks its balance.",
-  voucher: "Journal Voucher (F7): Record adjustment entries between accounts.",
+  voucher: "Journal Entry (F7): Record adjustment entries between accounts.",
   voucherSales:
-    "Sales Voucher (F8): Record sales transactions. Links to customer ledger and inventory.",
+    "Sales Entry (F8): Record sales transactions. Links to customer ledger and inventory.",
   voucherPurchase:
-    "Purchase Voucher (F9): Record purchases from vendors with GST auto-calculation.",
+    "Purchase Entry (F9): Record purchases from vendors with GST auto-calculation.",
   voucherPayment:
-    "Payment Voucher (F5): Record outgoing payments to vendors or expenses.",
+    "Payment Entry (F5): Record outgoing payments to vendors or expenses.",
   voucherReceipt:
-    "Receipt Voucher (F6): Record incoming payments from customers.",
+    "Receipt Entry (F6): Record incoming payments from customers.",
   voucherContra:
-    "Contra Voucher (F4): Record bank-to-cash or cash-to-bank transfers.",
+    "Contra Entry (F4): Record bank-to-cash or cash-to-bank transfers.",
   balanceSheet:
     "Balance Sheet: Shows Assets vs Liabilities + Equity as of today. Drill down for details.",
   plAccount:
@@ -414,11 +418,10 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   {
     key: "gateway",
-    label: "Gateway of HisabKitab",
+    label: "Dashboard",
     icon: LayoutDashboard,
     fkey: null,
   },
-  { key: "gateway", label: "Dashboard", icon: LayoutDashboard, fkey: null },
   {
     key: "__header_masters",
     label: "Masters",
@@ -943,13 +946,13 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     key: "voucherComments",
-    label: "Voucher Comments",
+    label: "Entry Comments",
     icon: MessageSquare,
     fkey: null,
   },
   {
     key: "voucherTasks",
-    label: "Voucher Tasks",
+    label: "Entry Tasks",
     icon: MessageSquare,
     fkey: null,
   },
@@ -1573,14 +1576,14 @@ const VOUCHER_TYPE_MAP: Record<string, string> = {
 };
 
 const VIEW_LABELS: Record<string, string> = {
-  gateway: "Gateway of HisabKitab",
+  gateway: "Dashboard",
   ledgers: "List of Ledgers",
-  voucher: "Voucher Entry",
-  voucherContra: "Contra Voucher",
-  voucherPayment: "Payment Voucher",
-  voucherReceipt: "Receipt Voucher",
-  voucherSales: "Sales Voucher",
-  voucherPurchase: "Purchase Voucher",
+  voucher: "Journal Entry",
+  voucherContra: "Contra Entry",
+  voucherPayment: "Payment Entry",
+  voucherReceipt: "Receipt Entry",
+  voucherSales: "Sales Entry",
+  voucherPurchase: "Purchase Entry",
   trialBalance: "Trial Balance",
   dayBook: "Day Book",
   hsnMaster: "HSN / SAC Master",
@@ -1588,7 +1591,7 @@ const VIEW_LABELS: Record<string, string> = {
   gstr3b: "GSTR-3B Return",
   taxLedgers: "Tax Ledger Balances",
   gstSettings: "GST Settings",
-  gstVoucher: "GST Voucher Entry",
+  gstVoucher: "GST Entry",
   balanceSheet: "Balance Sheet",
   plAccount: "Profit & Loss Account",
   cashFlow: "Cash Flow Statement",
@@ -2278,13 +2281,30 @@ export default function App() {
         e.target instanceof HTMLSelectElement;
       const key = e.key;
       // GoTo/Help shortcuts work even without activeCompany (just need to not be typing)
-      if (!isTyping) {
-        if (key === "g" || key === "G") {
+      if (!isTyping && e.altKey) {
+        if (key === "d" || key === "D") {
+          e.preventDefault();
           setGoToOpen(true);
           return;
         }
         if (key === "h" || key === "H") {
+          e.preventDefault();
           setHelpOpen(true);
+          return;
+        }
+        if (key === "p" || key === "P") {
+          e.preventDefault();
+          window.print();
+          return;
+        }
+        if (key === "x" || key === "X") {
+          e.preventDefault();
+          navigate("exportCenter");
+          return;
+        }
+        if (key === "m" || key === "M") {
+          e.preventDefault();
+          navigate("invoiceDispatch");
           return;
         }
       }
@@ -2294,20 +2314,6 @@ export default function App() {
         setHelpOpen(false);
         if (view !== "gateway") navigate("gateway");
         return;
-      }
-      if (!isTyping) {
-        if (key === "p" || key === "P") {
-          window.print();
-          return;
-        }
-        if (key === "e" || key === "E") {
-          navigate("exportCenter");
-          return;
-        }
-        if (key === "m" || key === "M") {
-          navigate("invoiceDispatch");
-          return;
-        }
       }
       // Check user custom shortcuts
       const userShortcuts = loadShortcuts(currentUser?.username ?? "");
@@ -2360,6 +2366,34 @@ export default function App() {
       if (key === "F9") {
         e.preventDefault();
         navigate("voucherPurchase");
+      }
+      // Ctrl+letter shortcuts (browser-safe, require activeCompany)
+      if (e.ctrlKey && !e.altKey && !e.shiftKey && activeCompany) {
+        if (key === "b" || key === "B") {
+          e.preventDefault();
+          navigate("balanceSheet");
+          return;
+        }
+        if (key === "t" || key === "T") {
+          e.preventDefault();
+          navigate("trialBalance");
+          return;
+        }
+        if (key === "d" || key === "D") {
+          e.preventDefault();
+          navigate("dayBook");
+          return;
+        }
+        if (key === "g" || key === "G") {
+          e.preventDefault();
+          navigate("gstr1");
+          return;
+        }
+        if (key === "i" || key === "I") {
+          e.preventDefault();
+          navigate("stockSummary");
+          return;
+        }
       }
     };
     window.addEventListener("keydown", handler);
@@ -2768,7 +2802,7 @@ export default function App() {
                 <button
                   type="button"
                   key={`hdr_${item.label}`}
-                  className="tally-section-header flex items-center gap-1.5 relative pl-3 cursor-pointer select-none hover:opacity-80 transition-opacity"
+                  className="hk-section-header flex items-center gap-1.5 relative pl-3 cursor-pointer select-none hover:opacity-80 transition-opacity"
                   onClick={() => toggleSection(item.key)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ")
@@ -2793,7 +2827,7 @@ export default function App() {
                 type="button"
                 key={`nav_${item.key}_${i}`}
                 data-ocid={`nav.${item.label.toLowerCase().replace(/[^a-z0-9]/g, "_")}.link`}
-                className={`tally-menu-item w-full relative ${isActive ? "active border-l-2 border-teal" : "border-l-2 border-transparent"}`}
+                className={`hk-menu-item w-full relative ${isActive ? "active border-l-2 border-teal" : "border-l-2 border-transparent"}`}
                 onClick={() => navigate(item.key)}
                 onMouseEnter={(e) => {
                   if (SIDEBAR_DESCRIPTIONS[item.key]) {
@@ -2817,9 +2851,7 @@ export default function App() {
                   />
                 )}
                 <span className="flex-1 truncate text-left">{item.label}</span>
-                {item.fkey && (
-                  <span className="tally-key-badge">{item.fkey}</span>
-                )}
+                {item.fkey && <span className="hk-key-badge">{item.fkey}</span>}
               </button>
             );
           });
@@ -2854,7 +2886,7 @@ export default function App() {
             HKPro
           </span>
           <span className="text-[10px] text-muted-foreground font-mono ml-1">
-            v39.0
+            v42.0
           </span>
         </div>
 
@@ -3016,33 +3048,45 @@ export default function App() {
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           {/* Command Strip — hidden on small screens */}
           <div className="hidden lg:flex h-9 items-center gap-1 px-3 border-b border-border bg-card flex-shrink-0">
-            {[
-              {
-                label: "G: Go To",
-                action: () => setGoToOpen(true),
-                ocid: "app.goto.button",
-              },
-              {
-                label: "G: Print",
-                action: () => window.print(),
-                ocid: "app.print.button",
-              },
-              {
-                label: "E: Export",
-                action: () => navigate("exportCenter"),
-                ocid: "app.export.button",
-              },
-              {
-                label: "M: E-Mail",
-                action: () => navigate("invoiceDispatch"),
-                ocid: "app.email.button",
-              },
-              {
-                label: "H: Help",
-                action: () => setHelpOpen(true),
-                ocid: "app.help.button",
-              },
-            ].map(({ label, action, ocid }) => (
+            {(
+              [
+                {
+                  label: "Go To",
+                  shortcut: "Alt+D",
+                  Icon: LayoutDashboard,
+                  action: () => setGoToOpen(true),
+                  ocid: "app.goto.button",
+                },
+                {
+                  label: "Print",
+                  shortcut: "Alt+P",
+                  Icon: Printer,
+                  action: () => window.print(),
+                  ocid: "app.print.button",
+                },
+                {
+                  label: "Export",
+                  shortcut: "Alt+X",
+                  Icon: Download,
+                  action: () => navigate("exportCenter"),
+                  ocid: "app.export.button",
+                },
+                {
+                  label: "E-Mail",
+                  shortcut: "Alt+M",
+                  Icon: Mail,
+                  action: () => navigate("invoiceDispatch"),
+                  ocid: "app.email.button",
+                },
+                {
+                  label: "Help",
+                  shortcut: "Alt+H",
+                  Icon: HelpCircle,
+                  action: () => setHelpOpen(true),
+                  ocid: "app.help.button",
+                },
+              ] as const
+            ).map(({ label, shortcut, Icon, action, ocid }) => (
               <button
                 type="button"
                 key={label}
@@ -3050,7 +3094,9 @@ export default function App() {
                 onClick={action}
                 data-ocid={ocid}
               >
-                {label}
+                <Icon size={11} />
+                <span className="hidden sm:inline">{label}</span>
+                <span className="hk-key-badge ml-1">{shortcut}</span>
               </button>
             ))}
             <div className="flex-1" />
@@ -3072,18 +3118,18 @@ export default function App() {
           {/* BOTTOM STATUS BAR */}
           <footer className="h-8 flex items-center px-4 gap-6 border-t border-border bg-secondary/30 flex-shrink-0">
             <span className="text-[10px] font-mono text-muted-foreground">
-              Ver. 29.0
+              Ver. 43.0
             </span>
             <div className="hidden md:flex items-center gap-4 text-[10px] text-muted-foreground">
               {[
-                { key: "F1", label: "Help" },
+                { key: "Alt+H", label: "Help" },
                 { key: "F2", label: "Date" },
                 { key: "F3", label: "Company" },
                 { key: "F7", label: "Journal" },
                 { key: "ESC", label: "Back" },
               ].map((s) => (
                 <span key={s.key}>
-                  <span className="tally-key-badge mr-1">{s.key}</span>
+                  <span className="hk-key-badge mr-1">{s.key}</span>
                   {s.label}
                 </span>
               ))}
@@ -3126,7 +3172,7 @@ export default function App() {
           >
             <div className="p-3 border-b border-border">
               <div className="text-xs text-muted-foreground mb-2 font-mono">
-                G: Go To — type to search
+                Alt+D: Go To — type to search
               </div>
               <input
                 type="text"
@@ -3176,7 +3222,7 @@ export default function App() {
                   )}
                   {item.label}
                   {item.fkey && (
-                    <span className="ml-auto tally-key-badge">{item.fkey}</span>
+                    <span className="ml-auto hk-key-badge">{item.fkey}</span>
                   )}
                 </button>
               ))}
@@ -3218,24 +3264,29 @@ export default function App() {
             <div className="p-4 grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
               {[
                 ["F1", "Create Ledger"],
-                ["F4", "Contra Voucher"],
-                ["F5", "Payment Voucher"],
-                ["F6", "Receipt Voucher"],
-                ["F7", "Journal Voucher"],
-                ["F8", "Sales Voucher"],
-                ["F9", "Purchase Voucher"],
+                ["F4", "Contra Entry"],
+                ["F5", "Payment Entry"],
+                ["F6", "Receipt Entry"],
+                ["F7", "Journal Entry"],
+                ["F8", "Sales Entry"],
+                ["F9", "Purchase Entry"],
                 ["ESC", "Go Back / Close"],
-                ["G", "Go To (navigate)"],
-                ["P", "Print current view"],
-                ["E", "Export Center"],
-                ["M", "Email / Dispatch"],
-                ["H", "Help (this screen)"],
+                ["Alt+D", "Go To / Dashboard"],
+                ["Alt+P", "Print current view"],
+                ["Alt+X", "Export Center"],
+                ["Alt+M", "Email / Dispatch"],
+                ["Alt+H", "Help (this screen)"],
                 ["Alt+C", "Create (action)"],
                 ["F3", "Company Select"],
                 ["Alt+Z", "Alter Company"],
+                ["Ctrl+B", "Balance Sheet"],
+                ["Ctrl+T", "Trial Balance"],
+                ["Ctrl+D", "Day Book"],
+                ["Ctrl+G", "GSTR-1 Report"],
+                ["Ctrl+I", "Inventory Summary"],
               ].map(([key, desc]) => (
                 <div key={key} className="flex items-center gap-2">
-                  <span className="tally-key-badge text-[10px] min-w-[40px] text-center">
+                  <span className="hk-key-badge text-[10px] min-w-[40px] text-center">
                     {key}
                   </span>
                   <span className="text-muted-foreground">{desc}</span>
@@ -3249,13 +3300,31 @@ export default function App() {
           </div>
         </div>
       )}
+      {/* Sidebar tooltip portal — authenticated app */}
+      {hoveredNav && SIDEBAR_DESCRIPTIONS[hoveredNav.key] && (
+        <div
+          className="fixed z-[9999] hidden lg:block max-w-xs bg-popover border border-border shadow-lg p-3 pointer-events-none"
+          style={{
+            left: hoveredNav.x,
+            top: hoveredNav.y,
+            transform: "translateY(-4px)",
+          }}
+        >
+          <p className="text-[11px] font-semibold text-foreground mb-1">
+            {hoveredNav.label}
+          </p>
+          <p className="text-[10px] text-muted-foreground leading-relaxed">
+            {SIDEBAR_DESCRIPTIONS[hoveredNav.key]}
+          </p>
+        </div>
+      )}
       <Toaster />
       {/* Phase 32: Mobile Bottom Nav */}
       {currentUser && (
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border flex items-center justify-around h-16 px-2 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
           {[
             { icon: LayoutDashboard, label: "Dashboard", key: "gateway" },
-            { icon: Receipt, label: "Vouchers", key: "voucher" },
+            { icon: Receipt, label: "Entries", key: "voucher" },
             { icon: BarChart3, label: "Reports", key: "balanceSheet" },
             { icon: Bell, label: "Alerts", key: "smartAlerts" },
           ].map(({ icon: Icon, label, key: k }) => (

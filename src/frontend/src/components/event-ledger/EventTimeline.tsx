@@ -35,6 +35,60 @@ type EventData = {
   status?: string;
 };
 
+// Demo events shown when no real events have been added
+const DEMO_EVENTS: EventData[] = [
+  {
+    id: "EVT-001",
+    eventType: "VoucherCreated",
+    entity: "Sales Entry #2024-001",
+    amount: 118000,
+    user: "admin",
+    timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+    description: "Sales to Reliance Industries — GST 18%",
+    status: "Active",
+  },
+  {
+    id: "EVT-002",
+    eventType: "VoucherCreated",
+    entity: "Payment Entry #2024-042",
+    amount: 45000,
+    user: "admin",
+    timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+    description: "Vendor payment — Office Supplies",
+    status: "Active",
+  },
+  {
+    id: "EVT-003",
+    eventType: "VoucherModified",
+    entity: "Purchase Entry #2024-018",
+    amount: 82500,
+    user: "accountant1",
+    timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    description: "Amended: GST rate corrected from 12% to 18%",
+    status: "Active",
+  },
+  {
+    id: "EVT-004",
+    eventType: "VoucherCancelled",
+    entity: "Journal Entry #2024-007",
+    amount: 15000,
+    user: "admin",
+    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    description: "Duplicate entry — cancelled by admin",
+    status: "Reversed",
+  },
+  {
+    id: "EVT-005",
+    eventType: "VoucherCreated",
+    entity: "Receipt Entry #2024-031",
+    amount: 200000,
+    user: "accountant1",
+    timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+    description: "Customer advance received — Tata Projects",
+    status: "Active",
+  },
+];
+
 const TYPE_CONFIG = {
   VoucherCreated: {
     color: "border-green-500 bg-green-900/20",
@@ -152,11 +206,11 @@ function EventDetailPanel({
             size="sm"
             variant="outline"
             className="w-full text-[10px] h-7 justify-start gap-2"
-            onClick={() => handleAction("View Voucher")}
+            onClick={() => handleAction("View Entry")}
             data-ocid="event_timeline.detail.view_voucher_button"
           >
             <Eye size={11} className="text-teal" />
-            View Voucher
+            View Entry
           </Button>
           <Button
             size="sm"
@@ -189,7 +243,11 @@ export default function EventTimeline() {
   const [selectedEntity, setSelectedEntity] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
 
-  const allEvents = loadEvents();
+  const storedEvents = loadEvents();
+  // Use demo events as fallback when no real events have been logged yet
+  const allEvents: EventData[] =
+    storedEvents.length > 0 ? storedEvents : DEMO_EVENTS;
+
   const entities = Array.from(new Set(allEvents.map((e) => e.entity))).sort();
 
   const displayed = allEvents
@@ -232,6 +290,14 @@ export default function EventTimeline() {
                 className="text-[10px] text-teal border-teal/40"
               >
                 1 selected
+              </Badge>
+            )}
+            {storedEvents.length === 0 && (
+              <Badge
+                variant="outline"
+                className="text-[10px] text-muted-foreground border-border/50"
+              >
+                Demo data — add events from Event Log
               </Badge>
             )}
           </div>
@@ -279,7 +345,7 @@ export default function EventTimeline() {
             className="text-xs text-muted-foreground text-center py-8"
             data-ocid="event_timeline.empty_state"
           >
-            No events found. Add sample events from Event Log.
+            No events found matching your filter.
           </p>
         ) : (
           <div className="relative pl-6">
