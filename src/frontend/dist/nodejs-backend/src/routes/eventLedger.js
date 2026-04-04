@@ -1,0 +1,7 @@
+const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
+router.get('/',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT * FROM event_ledger WHERE company_id=? AND is_undone=0 ORDER BY event_time DESC',[companyId]);res.json(r);});
+router.post('/',authenticate,async(req,res)=>{const{companyId,eventType,entityType,entityId,payload,narration}=req.body;const[r]=await db.query('INSERT INTO event_ledger(company_id,event_type,entity_type,entity_id,payload,narration,created_by)VALUES(?,?,?,?,?,?,?)',[companyId,eventType,entityType,entityId,JSON.stringify(payload),narration,req.user.username]);const[rows]=await db.query('SELECT * FROM event_ledger WHERE id=?',[r.insertId]);res.json(rows[0]);});
+router.get('/snapshot/:companyId',authenticate,async(req,res)=>{const{asOfDate}=req.query;const[r]=await db.query('SELECT * FROM event_ledger WHERE company_id=? AND event_time<=? ORDER BY event_time ASC',[req.params.companyId,asOfDate]);res.json(r);});
+router.put('/:id/undo',authenticate,async(req,res)=>{await db.query('UPDATE event_ledger SET is_undone=1,undone_by=?,undone_at=NOW() WHERE id=?',[req.user.username,req.params.id]);const[r]=await db.query('SELECT * FROM event_ledger WHERE id=?',[req.params.id]);res.json(r[0]);});
+router.get('/stack/:companyId',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM event_ledger WHERE company_id=? ORDER BY event_time DESC LIMIT 50',[req.params.companyId]);res.json(r);});
+module.exports=router;

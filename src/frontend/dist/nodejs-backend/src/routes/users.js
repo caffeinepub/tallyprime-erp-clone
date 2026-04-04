@@ -1,0 +1,7 @@
+const router=require('express').Router(),bcrypt=require('bcryptjs'),db=require('../database/db'),{authenticate,requireAdmin}=require('../middleware/auth');
+router.get('/',authenticate,requireAdmin,async(req,res)=>{const[r]=await db.query('SELECT id,username,role,full_name,email,phone,is_active,created_at FROM users ORDER BY id');res.json(r);});
+router.post('/',authenticate,requireAdmin,async(req,res)=>{const{username,password,role,fullName,email}=req.body;try{const hash=await bcrypt.hash(password,10);const[r]=await db.query('INSERT INTO users(username,password_hash,role,full_name,email)VALUES(?,?,?,?,?)',[username,hash,role||'viewer',fullName,email]);res.json({id:r.insertId,username,role});}catch(e){res.status(400).json({error:e.message});}});
+router.put('/:id',authenticate,requireAdmin,async(req,res)=>{const{role,fullName,email,isActive}=req.body;await db.query('UPDATE users SET role=?,full_name=?,email=?,is_active=? WHERE id=?',[role,fullName,email,isActive?1:0,req.params.id]);res.json({message:'Updated'});});
+router.put('/:id/reset-password',authenticate,requireAdmin,async(req,res)=>{const hash=await bcrypt.hash(req.body.newPassword,10);await db.query('UPDATE users SET password_hash=? WHERE id=?',[hash,req.params.id]);res.json({message:'Reset'});});
+router.delete('/:id',authenticate,requireAdmin,async(req,res)=>{await db.query('UPDATE users SET is_active=0 WHERE id=?',[req.params.id]);res.json({message:'Deactivated'});});
+module.exports=router;

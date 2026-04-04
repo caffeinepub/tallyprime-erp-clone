@@ -1,0 +1,7 @@
+const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
+router.get('/',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM ledger_groups ORDER BY id');res.json(r);});
+router.post('/',authenticate,async(req,res)=>{const{name,parentGroupId,nature}=req.body;const[r]=await db.query('INSERT INTO ledger_groups(name,parent_group_id,nature)VALUES(?,?,?)',[name,parentGroupId||null,nature||'DR']);const[rows]=await db.query('SELECT * FROM ledger_groups WHERE id=?',[r.insertId]);res.json(rows[0]);});
+router.put('/:id',authenticate,async(req,res)=>{const{name,parentGroupId,nature}=req.body;await db.query('UPDATE ledger_groups SET name=?,parent_group_id=?,nature=? WHERE id=?',[name,parentGroupId||null,nature,req.params.id]);const[r]=await db.query('SELECT * FROM ledger_groups WHERE id=?',[req.params.id]);res.json(r[0]);});
+router.delete('/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM ledger_groups WHERE is_predefined=0 AND id=?',[req.params.id]);res.json({message:'Deleted'});});
+router.post('/init',authenticate,async(req,res)=>{const g=[['Assets','DR'],['Liabilities','CR'],['Income','CR'],['Expenses','DR'],['Capital','CR'],['Sales','CR'],['Purchase','DR'],['Bank','DR'],['Cash','DR'],['Debtors','DR'],['Creditors','CR'],['Tax','CR']];for(const[n,nat]of g)await db.query('INSERT IGNORE INTO ledger_groups(name,nature,is_predefined)VALUES(?,?,1)',[n,nat]);const[r]=await db.query('SELECT * FROM ledger_groups ORDER BY id');res.json(r);});
+module.exports=router;

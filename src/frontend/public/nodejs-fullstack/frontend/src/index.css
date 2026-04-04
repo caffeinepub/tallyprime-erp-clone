@@ -1,0 +1,238 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ── DARK THEME (default) ─────────────────────────────────────── */
+  :root,
+  [data-theme="dark"] {
+    --background: 19.5% 0.03 220;
+    --foreground: 92% 0.02 210;
+    --card: 22% 0.035 220;
+    --card-foreground: 92% 0.02 210;
+    --popover: 24% 0.04 220;
+    --popover-foreground: 92% 0.02 210;
+    --primary: 62% 0.22 265;
+    --primary-foreground: 15% 0.02 220;
+    --secondary: 26% 0.04 220;
+    --secondary-foreground: 92% 0.02 210;
+    --muted: 26% 0.03 220;
+    --muted-foreground: 70% 0.03 210;
+    --accent: 62% 0.22 265;
+    --accent-foreground: 15% 0.02 220;
+    --destructive: 60% 0.22 25;
+    --destructive-foreground: 98% 0.01 0;
+    --border: 30% 0.04 220;
+    --input: 28% 0.04 220;
+    --ring: 62% 0.22 265;
+    --radius: 3px;
+    /* Teal preserved for sidebar accent bars & active borders */
+    --teal: 60% 0.12 195;
+    --teal-bright: 65% 0.14 195;
+    --sidebar: 18% 0.035 220;
+    /* Phase 25: Theme manager custom properties */
+    --theme-primary: #1e40af;
+    --theme-sidebar: #1e3a5f;
+    --theme-accent: #3b82f6;
+    --sidebar-border: 28% 0.04 220;
+    --sidebar-foreground: 88% 0.02 210;
+    --sidebar-muted: 65% 0.03 210;
+    --topbar: 24% 0.04 220;
+    --numeric: 72% 0.12 220;
+  }
+
+  /* ── LIGHT THEME ──────────────────────────────────────────────── */
+  [data-theme="light"] {
+    --background: 97% 0.005 220;
+    --foreground: 18% 0.03 220;
+    --card: 99% 0.003 220;
+    --card-foreground: 18% 0.03 220;
+    --popover: 100% 0 0;
+    --popover-foreground: 18% 0.03 220;
+    --primary: 50% 0.22 265;
+    --primary-foreground: 98% 0.01 0;
+    --secondary: 93% 0.01 220;
+    --secondary-foreground: 18% 0.03 220;
+    --muted: 91% 0.01 220;
+    --muted-foreground: 50% 0.03 220;
+    --accent: 50% 0.22 265;
+    --accent-foreground: 98% 0.01 0;
+    --destructive: 55% 0.22 25;
+    --destructive-foreground: 98% 0.01 0;
+    --border: 82% 0.02 220;
+    --input: 88% 0.01 220;
+    --ring: 50% 0.22 265;
+    --radius: 3px;
+    /* Teal preserved for sidebar accent bars & active borders */
+    --teal: 48% 0.13 195;
+    --teal-bright: 44% 0.15 195;
+    --sidebar: 95% 0.008 220;
+    --sidebar-border: 82% 0.02 220;
+    --sidebar-foreground: 20% 0.03 220;
+    --sidebar-muted: 45% 0.03 220;
+    --topbar: 92% 0.01 220;
+    --numeric: 38% 0.14 220;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-size: 10px;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-size: 1.3rem;
+    font-family: "Poppins", "Inter", sans-serif;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+}
+
+@layer utilities {
+  /* ── Typography Scale ─────────────────────────────────────────── */
+  .hk-heading {
+    @apply text-[16px] font-semibold leading-snug tracking-tight;
+  }
+
+  .hk-subheading {
+    @apply text-[13px] font-medium leading-snug;
+  }
+
+  .hk-body {
+    @apply text-[12px] leading-normal;
+  }
+
+  .hk-caption {
+    @apply text-[11px] leading-normal text-muted-foreground;
+  }
+
+  /* ── Menu & Sidebar ───────────────────────────────────────────── */
+  .hk-menu-item {
+    @apply flex items-center gap-2 px-3 py-2 text-[11.5px] cursor-pointer hover:bg-teal/15 hover:text-foreground text-sidebar-foreground transition-all duration-150 rounded-sm mx-1;
+  }
+
+  .hk-menu-item.active {
+    @apply bg-primary/20 text-foreground font-medium border-l-2 border-primary -ml-px;
+  }
+
+  /* Section headers */
+  .hk-section-header {
+    @apply px-3 pt-3 pb-1 text-[10.5px] font-semibold uppercase tracking-wider text-sidebar-muted;
+  }
+
+  /* Key badge — pill-shaped keyboard-key look */
+  .hk-key-badge {
+    @apply inline-flex items-center justify-center min-w-[36px] h-[19px] px-2 text-[9px] font-mono font-semibold bg-secondary/80 text-primary rounded-full border border-border/80 shadow-sm;
+  }
+
+  /* Command strip button */
+  .cmd-btn {
+    @apply flex items-center gap-1.5 py-2 px-3 text-[11px] font-medium rounded-sm border border-border/50 bg-gradient-to-b from-secondary/60 to-secondary/30 hover:from-secondary hover:to-secondary/60 hover:border-primary/30 cursor-pointer transition-all duration-150 text-muted-foreground hover:text-foreground;
+  }
+
+  /* ── Stat Cards & Tiles ───────────────────────────────────────── */
+  .hk-stat-card {
+    @apply bg-card border border-border rounded-md p-3 flex flex-col gap-1;
+  }
+
+  .hk-tile-chip {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 text-[10px] bg-secondary/70 hover:bg-secondary border border-border/50 rounded-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer;
+  }
+
+  /* ── Tables ───────────────────────────────────────────────────── */
+  .hk-table th {
+    @apply bg-secondary/60 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border px-3 py-2 text-left;
+  }
+
+  .hk-table td {
+    @apply text-[12px] border-b border-border/40 px-3 py-1.5;
+  }
+
+  .hk-table tr:hover td {
+    @apply bg-secondary/40;
+  }
+
+  /* ── Inputs ───────────────────────────────────────────────────── */
+  .hk-input {
+    @apply bg-input/30 border border-border text-foreground text-[12px] px-2 py-1.5 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/40 rounded-sm w-full transition-colors;
+  }
+
+  /* ── Legacy aliases — keep backward compatibility ─────────────── */
+  .tally-menu-item {
+    @apply hk-menu-item;
+  }
+
+  .tally-menu-item.active {
+    @apply bg-primary/20 text-foreground font-medium;
+  }
+
+  .tally-section-header {
+    @apply hk-section-header;
+  }
+
+  .tally-key-badge {
+    @apply hk-key-badge;
+  }
+
+  .tally-table th {
+    @apply bg-secondary/60 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border px-3 py-2 text-left;
+  }
+
+  .tally-table td {
+    @apply text-[12px] border-b border-border/40 px-3 py-1.5;
+  }
+
+  .tally-table tr:hover td {
+    @apply bg-secondary/40;
+  }
+
+  .tally-input {
+    @apply hk-input;
+  }
+
+  .text-numeric {
+    @apply font-mono;
+    color: oklch(var(--numeric));
+  }
+}
+
+/* Modern card hover effect */
+.bg-card {
+  transition: box-shadow 0.15s ease;
+}
+
+/* Phase 29: Desktop sidebar 15vw */
+@media (min-width: 1024px) {
+  .desktop-sidebar {
+    width: 15vw !important;
+    min-width: 15vw !important;
+  }
+}
+
+/* Phase 39: Light theme cmd-btn text color — gray so it's visible */
+[data-theme="light"] .cmd-btn {
+  color: #4b5563;
+}
+
+/* Phase 39: Hide scrollbar on mobile only */
+@media (max-width: 1023px) {
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
+}

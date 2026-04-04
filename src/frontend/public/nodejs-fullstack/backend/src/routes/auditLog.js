@@ -1,0 +1,3 @@
+const router=require('express').Router(),db=require('../database/db'),{authenticate,requireAdmin}=require('../middleware/auth');
+router.get('/',authenticate,requireAdmin,async(req,res)=>{const{entity,username,fromDate,toDate}=req.query;let sql='SELECT * FROM audit_log WHERE 1=1';const p=[];if(entity){sql+=' AND entity=?';p.push(entity);}if(username){sql+=' AND username=?';p.push(username);}if(fromDate){sql+=' AND created_at>=?';p.push(fromDate);}if(toDate){sql+=' AND created_at<=?';p.push(toDate);}sql+=' ORDER BY created_at DESC LIMIT 500';const[r]=await db.query(sql,p);res.json(r);});
+module.exports=router;
