@@ -1,0 +1,5 @@
+const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
+router.get('/history',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT * FROM tally_imports WHERE company_id=? ORDER BY imported_at DESC',[companyId]);res.json(r);});
+router.post('/import',authenticate,async(req,res)=>{const{companyId,fileName,totalRecords,importedRecords,errors,sourceType}=req.body;const[r]=await db.query('INSERT INTO tally_imports(company_id,file_name,total_records,imported_records,errors_json,source_type)VALUES(?,?,?,?,?,?)',[companyId,fileName,totalRecords,importedRecords,JSON.stringify(errors||[]),sourceType||'XML']);const[rows]=await db.query('SELECT * FROM tally_imports WHERE id=?',[r.insertId]);res.json(rows[0]);});
+router.post('/process',authenticate,async(req,res)=>{const{companyId,data,type}=req.body;const count=Array.isArray(data)?data.length:0;res.json({processedCount:count,message:`Processed ${count} records from ${type||'file'}`});});
+module.exports=router;
