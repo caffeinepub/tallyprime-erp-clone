@@ -1,10 +1,9 @@
 // Subscription Plans Routes - HisabKitab Pro v4.0
 const router = require('express').Router();
-const { db } = require('../database/db');
-const { auth } = require('../middleware/auth');
+const db = require('../database/db');
+const { authenticate: auth } = require('../middleware/auth');
 const { superAdminAuth } = require('./superAdmin');
 
-// GET /api/subscription-plans - List all plans
 router.get('/', async (req, res) => {
   try {
     const [plans] = await db.query('SELECT * FROM subscription_plans WHERE is_active=1 ORDER BY price ASC');
@@ -12,7 +11,6 @@ router.get('/', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// POST /api/subscription-plans - Create plan (Super Admin only)
 router.post('/', superAdminAuth, async (req, res) => {
   try {
     const { name, plan_type, duration_months, price, features_json, max_users, max_companies } = req.body;
@@ -24,7 +22,6 @@ router.post('/', superAdminAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PUT /api/subscription-plans/:id
 router.put('/:id', superAdminAuth, async (req, res) => {
   try {
     const { name, plan_type, duration_months, price, features_json, max_users, max_companies, is_active } = req.body;
@@ -36,7 +33,6 @@ router.put('/:id', superAdminAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/subscription-plans/my-subscription - Current user's subscription
 router.get('/my-subscription', auth, async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -53,7 +49,6 @@ router.get('/my-subscription', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// POST /api/subscription-plans/assign - Assign plan to admin (Super Admin)
 router.post('/assign', superAdminAuth, async (req, res) => {
   try {
     const { user_id, plan_id, start_date } = req.body;
@@ -72,7 +67,6 @@ router.post('/assign', superAdminAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/subscription-plans/check-access/:feature - Check if user can access a feature
 router.get('/check-access/:feature', auth, async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -83,7 +77,6 @@ router.get('/check-access/:feature', auth, async (req, res) => {
     const sub = rows[0];
     const isExpired = new Date(sub.expiry_date) < new Date();
     if (isExpired) return res.json({ allowed: false, reason: 'expired', plan_type: sub.plan_type });
-    // Free plan restrictions
     const freeAllowed = ['company_create', 'company_edit', 'company_delete', 'profile', 'billing'];
     if (sub.plan_type === 'free' && !freeAllowed.includes(req.params.feature)) {
       return res.json({ allowed: false, reason: 'upgrade_required', plan_type: 'free' });

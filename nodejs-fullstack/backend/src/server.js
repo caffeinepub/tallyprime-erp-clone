@@ -59,10 +59,11 @@ app.use('/api/data',require('./routes/dataManagement'));
 app.use('/api/ai',require('./routes/aiTools'));
 app.use('/api/utilities',require('./routes/utilities'));
 
-// === NEW ROUTES v4.0 ===
+// === NEW ROUTES v4.1 ===
 app.use('/api/super-admin', require('./routes/superAdmin'));
 app.use('/api/subscription-plans', require('./routes/subscriptionPlans'));
 app.use('/api/payments', require('./routes/payments'));
+app.use('/api/razorpay', require('./routes/razorpay'));
 app.use('/api/billing', require('./routes/billing'));
 app.use('/api/auth-enhanced', require('./routes/authEnhanced'));
 app.use('/api/media', require('./routes/media'));
@@ -75,13 +76,18 @@ app.use('/api/messaging', require('./routes/messaging'));
 
 app.get('/api/health',(req,res)=>res.json({
   status:'ok',
-  version:'4.0.0',
+  version:'4.1.0',
   app:'HisabKitab Pro Node.js Backend',
-  modules:54,
+  modules:60,
+  routes: {
+    existing: 46,
+    v4_new: 14
+  },
   new_in_v4:[
     'Super Admin Panel',
     'Subscription Plans (Free/Premium - 3/6/12 months/3 years)',
     'Payment Flow & Billing',
+    'Razorpay Payment Gateway (create-order, verify, webhook, refund)',
     'OTP Login (Email + Phone)',
     'Google OAuth',
     'GitHub OAuth',
@@ -100,13 +106,16 @@ app.use((err,req,res,next)=>res.status(err.status||500).json({error:err.message|
 
 const PORT=process.env.PORT||3001;
 app.listen(PORT,()=>{
-  console.log(`HisabKitab Pro Backend v4.0 running on port ${PORT}`);
+  console.log(`HisabKitab Pro Backend v4.1 running on port ${PORT}`);
   console.log(`Health: http://localhost:${PORT}/api/health`);
   console.log(`[DB] MySQL connected`);
-  console.log(`[NEW] Super Admin: POST /api/super-admin/login`);
-  console.log(`[NEW] OAuth: GET /api/auth-enhanced/google`);
-  console.log(`[NEW] OAuth: GET /api/auth-enhanced/github`);
-  console.log(`[NEW] OTP: POST /api/auth-enhanced/send-email-otp`);
-  console.log(`[NEW] Media: POST /api/media/upload (Cloudinary)`);
+  console.log(`[Razorpay] POST /api/razorpay/create-order`);
+  console.log(`[Razorpay] POST /api/razorpay/verify-payment`);
+  console.log(`[Razorpay] POST /api/razorpay/webhook`);
+  console.log(`[Super Admin] POST /api/super-admin/login`);
+  console.log(`[OAuth] GET /api/auth-enhanced/google`);
+  console.log(`[OAuth] GET /api/auth-enhanced/github`);
+  console.log(`[OTP] POST /api/auth-enhanced/send-email-otp`);
+  console.log(`[Media] POST /api/media/upload (Cloudinary)`);
 });
 module.exports=app;

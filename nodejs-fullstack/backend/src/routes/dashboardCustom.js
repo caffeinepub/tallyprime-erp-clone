@@ -1,14 +1,12 @@
 // Dashboard Customization - HisabKitab Pro v4.0
 const router = require('express').Router();
-const { db } = require('../database/db');
-const { auth } = require('../middleware/auth');
+const db = require('../database/db');
+const { authenticate: auth } = require('../middleware/auth');
 
-// GET /api/dashboard-layout - Get saved layout
 router.get('/', auth, async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM dashboard_layouts WHERE user_id=? ORDER BY created_at DESC LIMIT 1', [req.user.id]);
     if (!rows.length) {
-      // Default layout
       return res.json({
         layout: [
           { id: 'balance', title: 'Balance Sheet', widget_type: 'kpi', x: 0, y: 0, w: 3, h: 2, is_visible: true },
@@ -24,7 +22,6 @@ router.get('/', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// POST /api/dashboard-layout - Save layout
 router.post('/', auth, async (req, res) => {
   try {
     const { layout } = req.body;
@@ -36,7 +33,6 @@ router.post('/', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PATCH /api/dashboard-layout/toggle/:widget_id
 router.patch('/toggle/:widget_id', auth, async (req, res) => {
   try {
     const { is_visible } = req.body;
@@ -50,7 +46,6 @@ router.patch('/toggle/:widget_id', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// DELETE /api/dashboard-layout/reset
 router.delete('/reset', auth, async (req, res) => {
   try {
     await db.query('DELETE FROM dashboard_layouts WHERE user_id=?', [req.user.id]);

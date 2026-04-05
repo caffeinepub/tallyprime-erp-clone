@@ -1,7 +1,7 @@
-// Messaging System - Super Admin to Admins - HisabKitab Pro v4.0
+// Messaging System - HisabKitab Pro v4.0
 const router = require('express').Router();
-const { db } = require('../database/db');
-const { auth } = require('../middleware/auth');
+const db = require('../database/db');
+const { authenticate: auth } = require('../middleware/auth');
 const { superAdminAuth } = require('./superAdmin');
 const nodemailer = require('nodemailer');
 
@@ -17,7 +17,6 @@ async function sendEmail(to, subject, html) {
   try { await transporter.sendMail({ from: process.env.EMAIL_FROM || 'noreply@hisabkitab.com', to, subject, html }); } catch (e) { console.error('Email error:', e.message); }
 }
 
-// POST /api/messaging/send - Super Admin sends message to individual or all
 router.post('/send', superAdminAuth, async (req, res) => {
   try {
     const { recipient_id, message, subject, channels, send_to_all } = req.body;
@@ -32,21 +31,14 @@ router.post('/send', superAdminAuth, async (req, res) => {
     if (!recipients.length) return res.status(400).json({ error: 'No recipients found' });
     let sent = 0;
     for (const recipient of recipients) {
-      // Save message to DB
-      const [msgResult] = await db.query(
+      await db.query(
         'INSERT INTO messages(sender_type,sender_id,recipient_id,subject,message,channels_json) VALUES("super_admin",?,?,?,?,?)',
         [req.superAdmin.id, recipient.id, subject || 'Message from Admin', message, JSON.stringify(channels || ['email'])]
       );
-      // Send via channels
       if ((channels || ['email']).includes('email') && recipient.email) {
         await sendEmail(recipient.email, subject || 'Message from HisabKitab Pro Admin',
           `<p>Dear ${recipient.full_name},</p><p>${message}</p><hr/><p><small>HisabKitab Pro Admin</small></p>`);
       }
-      // WhatsApp via configured API
-      if ((channels || []).includes('whatsapp') && recipient.phone && process.env.WHATSAPP_API_KEY) {
-        // WhatsApp Business API call (placeholder - same as whatsapp.js pattern)
-      }
-      // Log notification
       await db.query('INSERT INTO notification_logs(user_id,type,channel,message,sent_by,status) VALUES(?,"message",?,?,?,"sent")',
         [recipient.id, (channels || ['email']).join(','), message, req.superAdmin.username]);
       sent++;
@@ -55,7 +47,6 @@ router.post('/send', superAdminAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/messaging/inbox - User's received messages
 router.get('/inbox', auth, async (req, res) => {
   try {
     const [messages] = await db.query('SELECT * FROM messages WHERE recipient_id=? ORDER BY created_at DESC', [req.user.id]);
@@ -63,20 +54,13 @@ router.get('/inbox', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/messaging/sent - Super Admin sent messages
 router.get('/sent', superAdminAuth, async (req, res) => {
   try {
-    const [messages] = await db.query(`
-      SELECT m.*, u.username as recipient_username, u.full_name as recipient_name
-      FROM messages m LEFT JOIN users u ON u.id=m.recipient_id
-      WHERE m.sender_type='super_admin'
-      ORDER BY m.created_at DESC LIMIT 200
-    `);
+    const [messages] = await db.query(`SELECT m.*, u.username as recipient_username, u.full_name as recipient_name FROM messages m LEFT JOIN users u ON u.id=m.recipient_id WHERE m.sender_type='super_admin' ORDER BY m.created_at DESC LIMIT 200`);
     res.json(messages);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PATCH /api/messaging/:id/read - Mark message as read
 router.patch('/:id/read', auth, async (req, res) => {
   try {
     await db.query('UPDATE messages SET is_read=1, read_at=NOW() WHERE id=? AND recipient_id=?', [req.params.id, req.user.id]);

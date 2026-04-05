@@ -1,11 +1,11 @@
 // Payment Routes - HisabKitab Pro v4.0
 const router = require('express').Router();
-const { db } = require('../database/db');
-const { auth } = require('../middleware/auth');
+const db = require('../database/db');
+const { authenticate: auth } = require('../middleware/auth');
 const { superAdminAuth } = require('./superAdmin');
 const { v4: uuidv4 } = require('uuid');
 
-// POST /api/payments/initiate - Admin initiates payment
+// POST /api/payments/initiate
 router.post('/initiate', auth, async (req, res) => {
   try {
     const { plan_id, amount, payment_method } = req.body;
@@ -18,15 +18,13 @@ router.post('/initiate', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// POST /api/payments/confirm - Confirm payment success
+// POST /api/payments/confirm
 router.post('/confirm', auth, async (req, res) => {
   try {
     const { txn_ref, gateway_txn_id, plan_id } = req.body;
     const [payments] = await db.query('SELECT * FROM payment_history WHERE txn_ref=? AND user_id=?', [txn_ref, req.user.id]);
     if (!payments.length) return res.status(404).json({ error: 'Payment not found' });
-    // Mark payment success
     await db.query('UPDATE payment_history SET status="success", gateway_txn_id=?, paid_at=NOW() WHERE txn_ref=?', [gateway_txn_id || 'MANUAL', txn_ref]);
-    // Activate subscription
     const [plans] = await db.query('SELECT * FROM subscription_plans WHERE id=?', [plan_id || payments[0].plan_id]);
     if (plans.length) {
       const plan = plans[0];
@@ -43,7 +41,7 @@ router.post('/confirm', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// POST /api/payments/fail - Handle payment failure
+// POST /api/payments/fail
 router.post('/fail', auth, async (req, res) => {
   try {
     const { txn_ref, reason } = req.body;
@@ -52,7 +50,7 @@ router.post('/fail', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/payments/history - My payment history
+// GET /api/payments/history
 router.get('/history', auth, async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -63,7 +61,7 @@ router.get('/history', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/payments/receipt/:id - Download receipt data
+// GET /api/payments/receipt/:id
 router.get('/receipt/:id', auth, async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -75,7 +73,7 @@ router.get('/receipt/:id', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/payments/all - All payments (Super Admin)
+// GET /api/payments/all (Super Admin)
 router.get('/all', superAdminAuth, async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -85,17 +83,15 @@ router.get('/all', superAdminAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// POST /api/payments/renew - Renew subscription
+// POST /api/payments/renew
 router.post('/renew', auth, async (req, res) => {
   try {
     const { plan_id, amount, txn_ref } = req.body;
-    // Record renewal payment
     const ref = txn_ref || uuidv4();
     await db.query(
       'INSERT INTO payment_history(user_id,plan_id,amount,payment_method,txn_ref,status,paid_at) VALUES(?,?,?,"renewal",?,"success",NOW())',
       [req.user.id, plan_id, amount, ref]
     );
-    // Extend subscription
     const [plans] = await db.query('SELECT * FROM subscription_plans WHERE id=?', [plan_id]);
     if (plans.length) {
       const plan = plans[0];

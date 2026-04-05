@@ -1,7 +1,7 @@
 // Billing Routes - HisabKitab Pro v4.0
 const router = require('express').Router();
-const { db } = require('../database/db');
-const { auth } = require('../middleware/auth');
+const db = require('../database/db');
+const { authenticate: auth } = require('../middleware/auth');
 
 // GET /api/billing/profile - Full billing profile (admin + company + subscription + payments)
 router.get('/profile', auth, async (req, res) => {
@@ -9,7 +9,6 @@ router.get('/profile', auth, async (req, res) => {
     const [users] = await db.query('SELECT id,username,full_name,email,phone,profile_image,created_at FROM users WHERE id=?', [req.user.id]);
     if (!users.length) return res.status(404).json({ error: 'User not found' });
     const user = users[0];
-    // Subscription
     const [subs] = await db.query(
       'SELECT s.*, p.name as plan_name, p.plan_type, p.features_json, p.duration_months FROM admin_subscriptions s LEFT JOIN subscription_plans p ON p.id=s.plan_id WHERE s.user_id=? ORDER BY s.created_at DESC LIMIT 1',
       [req.user.id]
@@ -19,18 +18,16 @@ router.get('/profile', auth, async (req, res) => {
       subscription.is_expired = new Date(subscription.expiry_date) < new Date();
       subscription.days_remaining = Math.max(0, Math.ceil((new Date(subscription.expiry_date) - new Date()) / 86400000));
     }
-    // Payment history
     const [payments] = await db.query(
       'SELECT p.*, pl.name as plan_name FROM payment_history p LEFT JOIN subscription_plans pl ON pl.id=p.plan_id WHERE p.user_id=? ORDER BY p.created_at DESC LIMIT 20',
       [req.user.id]
     );
-    // Companies
     const [companies] = await db.query('SELECT id,name,gstin,address FROM companies WHERE owner=? AND is_active=1', [user.username]);
     res.json({ user, subscription, payments, companies });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/billing/invoice/:payment_id - Generate invoice
+// GET /api/billing/invoice/:payment_id
 router.get('/invoice/:payment_id', auth, async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -55,7 +52,7 @@ router.get('/invoice/:payment_id', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/billing/status - Check subscription status (for middleware use)
+// GET /api/billing/status
 router.get('/status', auth, async (req, res) => {
   try {
     const [subs] = await db.query(
@@ -67,7 +64,6 @@ router.get('/status', auth, async (req, res) => {
     const isExpired = new Date(sub.expiry_date) < new Date();
     if (isExpired && sub.status !== 'expired') {
       await db.query('UPDATE admin_subscriptions SET status="expired" WHERE id=?', [sub.id]);
-      // Pause companies
       await db.query('UPDATE companies SET is_active=0 WHERE owner=(SELECT username FROM users WHERE id=?)', [req.user.id]);
     }
     res.json({
