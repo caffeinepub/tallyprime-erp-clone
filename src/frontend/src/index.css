@@ -236,3 +236,20 @@
     display: none;
   }
 }
+
+/* Phase 52: Desktop font size scaling - larger text for proper desktop viewing */
+@media (min-width: 1024px) {
+  html {
+    font-size: 12px;
+  }
+  body {
+    font-size: 1.35rem;
+  }
+  .tally-table th,
+  .tally-table td {
+    font-size: 12px !important;
+  }
+  .tally-input {
+    font-size: 12px !important;
+  }
+}

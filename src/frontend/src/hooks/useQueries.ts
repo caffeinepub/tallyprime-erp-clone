@@ -10,6 +10,7 @@ import type {
   HSNCode,
   Ledger,
   LedgerGroup,
+  StockItem,
   TaxLedgerBalance,
   TrialBalanceEntry,
   VoucherEntry,
@@ -151,9 +152,10 @@ export function useGetAllLedgers() {
   const { actor, isFetching } = useActor();
   return useQuery<Ledger[]>({
     queryKey: ["ledgers"],
-    queryFn: async () => {
+    queryFn: async (): Promise<Ledger[]> => {
       if (!actor) return [];
-      return actor.getAllLedgers();
+      const result = await actor.getAllLedgers();
+      return result as unknown as Ledger[];
     },
     enabled: !!actor && !isFetching,
   });
@@ -181,6 +183,14 @@ export function useCreateLedger() {
       groupId: bigint;
       openingBalance: number;
       balanceType: string;
+      ledgerType?: string;
+      address?: string | null;
+      pan?: string | null;
+      gstin?: string | null;
+      contactNo?: string | null;
+      email?: string | null;
+      bankAccountNo?: string | null;
+      ifscCode?: string | null;
     }) => {
       if (!actor) throw new Error("Not connected");
       return actor.createLedger(
@@ -205,6 +215,14 @@ export function useUpdateLedger() {
       groupId: bigint;
       openingBalance: number;
       balanceType: string;
+      ledgerType?: string;
+      address?: string | null;
+      pan?: string | null;
+      gstin?: string | null;
+      contactNo?: string | null;
+      email?: string | null;
+      bankAccountNo?: string | null;
+      ifscCode?: string | null;
     }) => {
       if (!actor) throw new Error("Not connected");
       return actor.updateLedger(
@@ -765,5 +783,210 @@ export function useAddExchangeRate() {
       qc.invalidateQueries({
         queryKey: ["exchangeRates", vars.currencyId.toString()],
       }),
+  });
+}
+
+// ── localStorage-backed draft & settings hooks (Phase 52) ───────────────────
+
+interface LocalDraft {
+  id: bigint;
+  companyId: bigint;
+  voucherType: string;
+  date: string;
+  narration: string;
+  entriesJson: string;
+  createdAt: bigint;
+}
+
+function lsDraftKey(companyId: bigint) {
+  return `hk_drafts_${companyId.toString()}`;
+}
+
+function lsGetDrafts(companyId: bigint): LocalDraft[] {
+  try {
+    const raw = localStorage.getItem(lsDraftKey(companyId));
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return arr.map((d: any) => ({
+      ...d,
+      id: BigInt(d.id),
+      companyId: BigInt(d.companyId),
+      createdAt: BigInt(d.createdAt || 0),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function lsSaveDrafts(companyId: bigint, drafts: LocalDraft[]) {
+  try {
+    localStorage.setItem(
+      lsDraftKey(companyId),
+      JSON.stringify(
+        drafts.map((d) => ({
+          ...d,
+          id: d.id.toString(),
+          companyId: d.companyId.toString(),
+          createdAt: d.createdAt.toString(),
+        })),
+      ),
+    );
+  } catch {}
+}
+
+export function useGetAllVoucherDrafts(companyId?: bigint) {
+  return useQuery<LocalDraft[]>({
+    queryKey: ["voucherDrafts", companyId?.toString()],
+    queryFn: () => (companyId ? lsGetDrafts(companyId) : []),
+    enabled: !!companyId,
+  });
+}
+
+export function useCreateVoucherDraft() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      companyId: bigint;
+      voucherType: string;
+      date: string;
+      narration: string;
+      entriesJson: string;
+    }) => {
+      const drafts = lsGetDrafts(args.companyId);
+      const newDraft: LocalDraft = {
+        id: BigInt(Date.now()),
+        companyId: args.companyId,
+        voucherType: args.voucherType,
+        date: args.date,
+        narration: args.narration,
+        entriesJson: args.entriesJson,
+        createdAt: BigInt(Date.now()),
+      };
+      lsSaveDrafts(args.companyId, [...drafts, newDraft]);
+      return newDraft;
+    },
+    onSuccess: (_d, args) =>
+      qc.invalidateQueries({
+        queryKey: ["voucherDrafts", args.companyId.toString()],
+      }),
+  });
+}
+
+export function useUpdateVoucherDraft() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      id: bigint;
+      companyId: bigint;
+      voucherType: string;
+      date: string;
+      narration: string;
+      entriesJson: string;
+    }) => {
+      const drafts = lsGetDrafts(args.companyId);
+      const updated = drafts.map((d) =>
+        d.id === args.id ? { ...d, ...args } : d,
+      );
+      lsSaveDrafts(args.companyId, updated);
+      return updated.find((d) => d.id === args.id) as LocalDraft;
+    },
+    onSuccess: (_d, args) =>
+      qc.invalidateQueries({
+        queryKey: ["voucherDrafts", args.companyId.toString()],
+      }),
+  });
+}
+
+export function useDeleteVoucherDraft() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      companyId,
+    }: { id: bigint; companyId: bigint }) => {
+      const drafts = lsGetDrafts(companyId).filter((d) => d.id !== id);
+      lsSaveDrafts(companyId, drafts);
+      return true;
+    },
+    onSuccess: (_d, args) =>
+      qc.invalidateQueries({
+        queryKey: ["voucherDrafts", args.companyId.toString()],
+      }),
+  });
+}
+
+interface LocalCompanySettings {
+  companyId: bigint;
+  enableTransport: boolean;
+  enableEwayBill: boolean;
+  enableInventory: boolean;
+  enableGST: boolean;
+  enableExportImport: boolean;
+  desktopMode: string;
+}
+
+function lsSettingsKey(companyId: bigint) {
+  return `hk_company_settings_${companyId.toString()}`;
+}
+
+export function useGetCompanySettings(companyId?: bigint) {
+  return useQuery<LocalCompanySettings | null>({
+    queryKey: ["companySettings", companyId?.toString()],
+    queryFn: () => {
+      if (!companyId) return null;
+      try {
+        const raw = localStorage.getItem(lsSettingsKey(companyId));
+        if (!raw) return null;
+        const d = JSON.parse(raw);
+        return { ...d, companyId: BigInt(d.companyId || companyId.toString()) };
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!companyId,
+  });
+}
+
+export function useSaveCompanySettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      companyId: bigint;
+      enableTransport: boolean;
+      enableEwayBill: boolean;
+      enableInventory: boolean;
+      enableGST: boolean;
+      enableExportImport: boolean;
+      desktopMode: string;
+    }): Promise<LocalCompanySettings> => {
+      const settings: LocalCompanySettings = { ...args };
+      try {
+        localStorage.setItem(
+          lsSettingsKey(args.companyId),
+          JSON.stringify({
+            ...settings,
+            companyId: settings.companyId.toString(),
+          }),
+        );
+      } catch {}
+      return settings;
+    },
+    onSuccess: (_d, args) =>
+      qc.invalidateQueries({
+        queryKey: ["companySettings", args.companyId.toString()],
+      }),
+  });
+}
+
+// ── Phase 52: Stock Items ─────────────────────────────────────────────────────
+export function useGetAllStockItems() {
+  const { actor, isFetching } = useActor();
+  return useQuery<StockItem[]>({
+    queryKey: ["stockItems"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAllStockItems();
+    },
+    enabled: !!actor && !isFetching,
   });
 }

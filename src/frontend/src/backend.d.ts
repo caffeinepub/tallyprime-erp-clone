@@ -354,6 +354,34 @@ export interface Ledger {
     balanceType: string;
     openingBalance: number;
     companyId: bigint;
+    ledgerType: string;
+    address?: string;
+    pan?: string;
+    gstin?: string;
+    contactNo?: string;
+    email?: string;
+    bankAccountNo?: string;
+    ifscCode?: string;
+}
+
+export interface VoucherDraft {
+    id: bigint;
+    companyId: bigint;
+    voucherType: string;
+    date: string;
+    narration: string;
+    entriesJson: string;
+    createdAt: Time;
+}
+
+export interface CompanySettings {
+    companyId: bigint;
+    enableTransport: boolean;
+    enableEwayBill: boolean;
+    enableInventory: boolean;
+    enableGST: boolean;
+    enableExportImport: boolean;
+    desktopMode: string;
 }
 export interface CostAllocation {
     id: bigint;
@@ -383,7 +411,7 @@ export interface backendInterface {
         voucherId: bigint;
     }>;
     createHSNCode(code: string, description: string, gstRate: number): Promise<HSNCode>;
-    createLedger(companyId: bigint, name: string, groupId: bigint, openingBalance: number, balanceType: string): Promise<Ledger>;
+    createLedger(companyId: bigint, name: string, groupId: bigint, openingBalance: number, balanceType: string, ledgerType: string, address: string | null, pan: string | null, gstin: string | null, contactNo: string | null, email: string | null, bankAccountNo: string | null, ifscCode: string | null): Promise<Ledger>;
     createPayrollVoucher(companyId: bigint, month: bigint, year: bigint, entries: Array<PayrollEntry>): Promise<PayrollVoucher>;
     createStockGroup(name: string, parentGroupId: bigint | null, unit: string): Promise<StockGroup>;
     createStockItem(companyId: bigint, name: string, stockGroupId: bigint, unit: string, openingQty: number, openingRate: number, gstRate: number, hsnCode: string): Promise<StockItem>;
@@ -459,9 +487,16 @@ export interface backendInterface {
     updateEmployee(id: bigint, name: string, employeeCode: string, department: string, designation: string, dateOfJoining: string, pan: string, bankAccount: string, bankName: string, pfApplicable: boolean, esiApplicable: boolean, isActive: boolean): Promise<Employee>;
     updateFixedAsset(id: bigint, name: string, category: string, purchaseDate: Time, cost: number, salvageValue: number, usefulLifeYears: bigint, depreciationMethod: string, accumulatedDepreciation: number, isDisposed: boolean): Promise<FixedAsset>;
     updateHSNCode(id: bigint, code: string, description: string, gstRate: number): Promise<HSNCode>;
-    updateLedger(ledgerId: bigint, name: string, groupId: bigint, openingBalance: number, balanceType: string): Promise<Ledger>;
+    updateLedger(ledgerId: bigint, name: string, groupId: bigint, openingBalance: number, balanceType: string, ledgerType: string, address: string | null, pan: string | null, gstin: string | null, contactNo: string | null, email: string | null, bankAccountNo: string | null, ifscCode: string | null): Promise<Ledger>;
     updateStockItem(id: bigint, name: string, stockGroupId: bigint, unit: string, openingQty: number, openingRate: number, gstRate: number, hsnCode: string): Promise<StockItem>;
     updateUser(id: bigint, username: string, role: string, companyId: bigint | null, isActive: boolean): Promise<AppUser>;
     validateAllData(): Promise<Array<string>>;
     verifyUser(username: string, passwordHash: string): Promise<AppUser | null>;
+
+        createVoucherDraft(companyId: bigint, voucherType: string, date: string, narration: string, entriesJson: string): Promise<VoucherDraft>;
+    updateVoucherDraft(id: bigint, voucherType: string, date: string, narration: string, entriesJson: string): Promise<VoucherDraft>;
+    deleteVoucherDraft(id: bigint): Promise<boolean>;
+    getAllVoucherDrafts(companyId: bigint): Promise<VoucherDraft[]>;
+    saveCompanySettings(companyId: bigint, enableTransport: boolean, enableEwayBill: boolean, enableInventory: boolean, enableGST: boolean, enableExportImport: boolean, desktopMode: string): Promise<CompanySettings>;
+    getCompanySettings(companyId: bigint): Promise<CompanySettings | null>;
 }

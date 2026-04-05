@@ -98,6 +98,7 @@ import DayBook from "./components/DayBook";
 import EmployeeMaster from "./components/EmployeeMaster";
 import ExchangeRates from "./components/ExchangeRates";
 import ExportCenter from "./components/ExportCenter";
+import FeatureSettings from "./components/FeatureSettings";
 import FixedAssetMaster from "./components/FixedAssetMaster";
 import ForecastingDashboard from "./components/ForecastingDashboard";
 import GSTR1Report from "./components/GSTR1Report";
@@ -458,6 +459,12 @@ const NAV_ITEMS: NavItem[] = [
   { key: "gstr3b", label: "GSTR-3B", icon: Shield, fkey: null },
   { key: "taxLedgers", label: "Tax Ledgers", icon: Shield, fkey: null },
   { key: "gstSettings", label: "GST Settings", icon: Shield, fkey: null },
+  {
+    key: "featureSettings",
+    label: "Feature Settings",
+    icon: Settings,
+    fkey: null,
+  },
   {
     key: "__header_inventory",
     label: "Inventory",
@@ -2508,6 +2515,8 @@ export default function App() {
     if (view === "gstr1") return <GSTR1Report company={activeCompany} />;
     if (view === "gstr3b") return <GSTR3BReport company={activeCompany} />;
     if (view === "gstSettings") return <GSTSettings company={activeCompany} />;
+    if (view === "featureSettings")
+      return <FeatureSettings company={activeCompany} />;
     if (view === "gstVoucher")
       return <GSTVoucherEntry company={activeCompany} />;
     if (view === "balanceSheet")

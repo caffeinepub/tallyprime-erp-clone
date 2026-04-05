@@ -43,6 +43,7 @@ actor {
     };
   };
 
+  // Base ledger type (stable-compatible with existing data)
   type Ledger = {
     id : Nat;
     companyId : Nat;
@@ -50,6 +51,43 @@ actor {
     groupId : Nat;
     openingBalance : Float;
     balanceType : Text;
+  };
+
+  // Extended ledger metadata stored separately (new stable map, migration-safe)
+  type LedgerMeta = {
+    ledgerId : Nat;
+    ledgerType : Text;
+    address : ?Text;
+    pan : ?Text;
+    gstin : ?Text;
+    contactNo : ?Text;
+    email : ?Text;
+    bankAccountNo : ?Text;
+    ifscCode : ?Text;
+  };
+
+  module LedgerMeta {
+    public func compare(a : LedgerMeta, b : LedgerMeta) : Order.Order {
+      Nat.compare(a.ledgerId, b.ledgerId);
+    };
+  };
+
+  // Combined type returned to frontend (not stored in stable map directly)
+  type LedgerFull = {
+    id : Nat;
+    companyId : Nat;
+    name : Text;
+    groupId : Nat;
+    openingBalance : Float;
+    balanceType : Text;
+    ledgerType : Text;
+    address : ?Text;
+    pan : ?Text;
+    gstin : ?Text;
+    contactNo : ?Text;
+    email : ?Text;
+    bankAccountNo : ?Text;
+    ifscCode : ?Text;
   };
 
   module Ledger {
@@ -530,6 +568,35 @@ actor {
     };
   };
 
+
+  // PHASE 52: Voucher Drafts
+  type VoucherDraft = {
+    id : Nat;
+    companyId : Nat;
+    voucherType : Text;
+    date : Text;
+    narration : Text;
+    entriesJson : Text;
+    createdAt : Time.Time;
+  };
+
+  module VoucherDraft {
+    public func compare(a : VoucherDraft, b : VoucherDraft) : Order.Order {
+      Nat.compare(a.id, b.id);
+    };
+  };
+
+  // PHASE 52: Company Settings
+  type CompanySettings = {
+    companyId : Nat;
+    enableTransport : Bool;
+    enableEwayBill : Bool;
+    enableInventory : Bool;
+    enableGST : Bool;
+    enableExportImport : Bool;
+    desktopMode : Text;
+  };
+
   var nextCompanyId = 1;
   var nextLedgerGroupId = 1;
   var nextLedgerId = 1;
@@ -550,10 +617,14 @@ actor {
   var nextDepreciationEntryId = 1;
   var nextCurrencyId = 1;
   var nextExchangeRateId = 1;
+  var nextVoucherDraftId = 1;
 
   let companies = Map.empty<Nat, Company>();
+  let voucherDrafts = Map.empty<Nat, VoucherDraft>();
+  let companySettingsMap = Map.empty<Nat, CompanySettings>();
   let ledgerGroups = Map.empty<Nat, LedgerGroup>();
   let ledgers = Map.empty<Nat, Ledger>();
+  let ledgerMetas = Map.empty<Nat, LedgerMeta>();
   let vouchers = Map.empty<Nat, Voucher>();
   let hsnCodes = Map.empty<Nat, HSNCode>();
   let gstSettingsMap = Map.empty<Nat, GSTSettings>();
@@ -617,7 +688,7 @@ actor {
     ledgerGroups.values().toArray().sort();
   };
 
-  public shared ({ caller }) func createLedger(companyId : Nat, name : Text, groupId : Nat, openingBalance : Float, balanceType : Text) : async Ledger {
+  public shared ({ caller }) func createLedger(companyId : Nat, name : Text, groupId : Nat, openingBalance : Float, balanceType : Text, ledgerType : Text, address : ?Text, pan : ?Text, gstin : ?Text, contactNo : ?Text, email : ?Text, bankAccountNo : ?Text, ifscCode : ?Text) : async LedgerFull {
     let ledger : Ledger = {
       id = nextLedgerId;
       companyId;
@@ -626,12 +697,40 @@ actor {
       openingBalance;
       balanceType;
     };
+    let meta : LedgerMeta = {
+      ledgerId = nextLedgerId;
+      ledgerType;
+      address;
+      pan;
+      gstin;
+      contactNo;
+      email;
+      bankAccountNo;
+      ifscCode;
+    };
     ledgers.add(nextLedgerId, ledger);
+    ledgerMetas.add(nextLedgerId, meta);
+    let full : LedgerFull = {
+      id = ledger.id;
+      companyId = ledger.companyId;
+      name = ledger.name;
+      groupId = ledger.groupId;
+      openingBalance = ledger.openingBalance;
+      balanceType = ledger.balanceType;
+      ledgerType;
+      address;
+      pan;
+      gstin;
+      contactNo;
+      email;
+      bankAccountNo;
+      ifscCode;
+    };
     nextLedgerId += 1;
-    ledger;
+    full;
   };
 
-  public shared ({ caller }) func updateLedger(ledgerId : Nat, name : Text, groupId : Nat, openingBalance : Float, balanceType : Text) : async Ledger {
+  public shared ({ caller }) func updateLedger(ledgerId : Nat, name : Text, groupId : Nat, openingBalance : Float, balanceType : Text, ledgerType : Text, address : ?Text, pan : ?Text, gstin : ?Text, contactNo : ?Text, email : ?Text, bankAccountNo : ?Text, ifscCode : ?Text) : async LedgerFull {
     switch (ledgers.get(ledgerId)) {
       case (?ledger) {
         let updatedLedger : Ledger = {
@@ -642,15 +741,60 @@ actor {
           openingBalance;
           balanceType;
         };
+        let updatedMeta : LedgerMeta = {
+          ledgerId;
+          ledgerType;
+          address;
+          pan;
+          gstin;
+          contactNo;
+          email;
+          bankAccountNo;
+          ifscCode;
+        };
         ledgers.add(ledgerId, updatedLedger);
-        updatedLedger;
+        ledgerMetas.add(ledgerId, updatedMeta);
+        {
+          id = updatedLedger.id;
+          companyId = updatedLedger.companyId;
+          name = updatedLedger.name;
+          groupId = updatedLedger.groupId;
+          openingBalance = updatedLedger.openingBalance;
+          balanceType = updatedLedger.balanceType;
+          ledgerType;
+          address;
+          pan;
+          gstin;
+          contactNo;
+          email;
+          bankAccountNo;
+          ifscCode;
+        };
       };
       case (null) { Runtime.trap("Ledger not found") };
     };
   };
 
-  public query ({ caller }) func getAllLedgers() : async [Ledger] {
-    ledgers.values().toArray().sort();
+  public query ({ caller }) func getAllLedgers() : async [LedgerFull] {
+    ledgers.values().toArray().sort().map(func(ledger : Ledger) : LedgerFull {
+      let meta = ledgerMetas.get(ledger.id);
+      {
+        id = ledger.id;
+        companyId = ledger.companyId;
+        name = ledger.name;
+        groupId = ledger.groupId;
+        openingBalance = ledger.openingBalance;
+        balanceType = ledger.balanceType;
+        ledgerType = switch (meta) { case (?m) { m.ledgerType }; case (null) { "General" } };
+        address = switch (meta) { case (?m) { m.address }; case (null) { null } };
+        pan = switch (meta) { case (?m) { m.pan }; case (null) { null } };
+        gstin = switch (meta) { case (?m) { m.gstin }; case (null) { null } };
+        contactNo = switch (meta) { case (?m) { m.contactNo }; case (null) { null } };
+        email = switch (meta) { case (?m) { m.email }; case (null) { null } };
+        bankAccountNo = switch (meta) { case (?m) { m.bankAccountNo }; case (null) { null } };
+        ifscCode = switch (meta) { case (?m) { m.ifscCode }; case (null) { null } };
+      };
+    });
   };
 
   public shared ({ caller }) func createVoucher(companyId : Nat, voucherType : Text, voucherNumber : Nat, date : Time.Time, narration : Text, entries : [VoucherEntry]) : async { voucherId : Nat; voucher : Voucher } {
@@ -1955,4 +2099,71 @@ actor {
     userProfiles.get(username)
   };
 
-};
+  // PHASE 52: VOUCHER DRAFT FUNCTIONS
+  public shared ({ caller }) func createVoucherDraft(companyId : Nat, voucherType : Text, date : Text, narration : Text, entriesJson : Text) : async VoucherDraft {
+    let draft : VoucherDraft = {
+      id = nextVoucherDraftId;
+      companyId;
+      voucherType;
+      date;
+      narration;
+      entriesJson;
+      createdAt = Time.now();
+    };
+    voucherDrafts.add(nextVoucherDraftId, draft);
+    nextVoucherDraftId += 1;
+    draft;
+  };
+
+  public shared ({ caller }) func updateVoucherDraft(id : Nat, voucherType : Text, date : Text, narration : Text, entriesJson : Text) : async VoucherDraft {
+    switch (voucherDrafts.get(id)) {
+      case (?draft) {
+        let updated : VoucherDraft = {
+          id = draft.id;
+          companyId = draft.companyId;
+          voucherType;
+          date;
+          narration;
+          entriesJson;
+          createdAt = draft.createdAt;
+        };
+        voucherDrafts.add(id, updated);
+        updated;
+      };
+      case (null) { Runtime.trap("Draft not found") };
+    };
+  };
+
+  public shared ({ caller }) func deleteVoucherDraft(id : Nat) : async Bool {
+    switch (voucherDrafts.get(id)) {
+      case (?_) {
+        voucherDrafts.remove(id);
+        true;
+      };
+      case (null) { false };
+    };
+  };
+
+  public query ({ caller }) func getAllVoucherDrafts(companyId : Nat) : async [VoucherDraft] {
+    voucherDrafts.values().filter(func(d) { d.companyId == companyId }).toArray().sort();
+  };
+
+  // PHASE 52: COMPANY SETTINGS FUNCTIONS
+  public shared ({ caller }) func saveCompanySettings(companyId : Nat, enableTransport : Bool, enableEwayBill : Bool, enableInventory : Bool, enableGST : Bool, enableExportImport : Bool, desktopMode : Text) : async CompanySettings {
+    let settings : CompanySettings = {
+      companyId;
+      enableTransport;
+      enableEwayBill;
+      enableInventory;
+      enableGST;
+      enableExportImport;
+      desktopMode;
+    };
+    companySettingsMap.add(companyId, settings);
+    settings;
+  };
+
+  public query ({ caller }) func getCompanySettings(companyId : Nat) : async ?CompanySettings {
+    companySettingsMap.get(companyId);
+  };
+}
