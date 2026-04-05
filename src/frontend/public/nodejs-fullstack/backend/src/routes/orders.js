@@ -1,8 +1,54 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/purchase',authenticate,async(req,res)=>{const{companyId,status}=req.query;let sql='SELECT * FROM purchase_orders WHERE company_id=?';const p=[companyId];if(status){sql+=' AND status=?';p.push(status);}sql+=' ORDER BY date DESC';const[rows]=await db.query(sql,p);const result=await Promise.all(rows.map(async r=>{const[items]=await db.query('SELECT * FROM order_items WHERE order_id=? AND order_type="purchase"',[r.id]);return{...r,items};}));res.json(result);});
-router.post('/purchase',authenticate,async(req,res)=>{const{companyId,vendorId,vendorName,date,dueDate,items,totalAmount,notes}=req.body;const conn=await db.getConnection();try{await conn.beginTransaction();const[r]=await conn.query('INSERT INTO purchase_orders(company_id,vendor_id,vendor_name,date,due_date,total_amount,notes)VALUES(?,?,?,?,?,?,?)',[companyId,vendorId,vendorName,date,dueDate,totalAmount,notes]);for(const i of(items||[]))await conn.query('INSERT INTO order_items(order_id,order_type,stock_item_id,item_name,qty,rate,amount,gst_rate,gst_amount)VALUES(?,?,?,?,?,?,?,?,?)',[r.insertId,'purchase',i.stockItemId,i.itemName,i.qty,i.rate,i.amount,i.gstRate||0,i.gstAmount||0]);await conn.commit();res.json({orderId:r.insertId});}catch(e){await conn.rollback();res.status(500).json({error:e.message});}finally{conn.release();}});
-router.put('/purchase/:id',authenticate,async(req,res)=>{await db.query('UPDATE purchase_orders SET status=? WHERE id=?',[req.body.status,req.params.id]);const[r]=await db.query('SELECT * FROM purchase_orders WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.get('/sales',authenticate,async(req,res)=>{const{companyId,status}=req.query;let sql='SELECT * FROM sales_orders WHERE company_id=?';const p=[companyId];if(status){sql+=' AND status=?';p.push(status);}sql+=' ORDER BY date DESC';const[rows]=await db.query(sql,p);const result=await Promise.all(rows.map(async r=>{const[items]=await db.query('SELECT * FROM order_items WHERE order_id=? AND order_type="sales"',[r.id]);return{...r,items};}));res.json(result);});
-router.post('/sales',authenticate,async(req,res)=>{const{companyId,customerId,customerName,date,dueDate,items,totalAmount,notes}=req.body;const conn=await db.getConnection();try{await conn.beginTransaction();const[r]=await conn.query('INSERT INTO sales_orders(company_id,customer_id,customer_name,date,due_date,total_amount,notes)VALUES(?,?,?,?,?,?,?)',[companyId,customerId,customerName,date,dueDate,totalAmount,notes]);for(const i of(items||[]))await conn.query('INSERT INTO order_items(order_id,order_type,stock_item_id,item_name,qty,rate,amount,gst_rate,gst_amount)VALUES(?,?,?,?,?,?,?,?,?)',[r.insertId,'sales',i.stockItemId,i.itemName,i.qty,i.rate,i.amount,i.gstRate||0,i.gstAmount||0]);await conn.commit();res.json({orderId:r.insertId});}catch(e){await conn.rollback();res.status(500).json({error:e.message});}finally{conn.release();}});
-router.put('/sales/:id',authenticate,async(req,res)=>{await db.query('UPDATE sales_orders SET status=? WHERE id=?',[req.body.status,req.params.id]);const[r]=await db.query('SELECT * FROM sales_orders WHERE id=?',[req.params.id]);res.json(r[0]);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/vendors', auth, async (req, res) => {
+  try { const { company_id } = req.query; res.json(await query('SELECT * FROM vendors WHERE company_id=? ORDER BY name', [company_id])); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/vendors', auth, async (req, res) => {
+  try {
+    const { company_id, name, email, phone, address, gstin } = req.body;
+    const r = await query('INSERT INTO vendors (company_id,name,email,phone,address,gstin) VALUES (?,?,?,?,?,?)', [company_id, name, email, phone, address, gstin]);
+    res.status(201).json({ id: r.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Purchase Orders
+router.get('/purchase', auth, async (req, res) => {
+  try { const { company_id } = req.query; res.json(await query('SELECT po.*,v.name as vendor_name FROM purchase_orders po LEFT JOIN vendors v ON po.vendor_id=v.id WHERE po.company_id=? ORDER BY po.date DESC', [company_id])); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/purchase', auth, async (req, res) => {
+  try {
+    const { company_id, vendor_id, order_number, date, total_amount, notes } = req.body;
+    const r = await query('INSERT INTO purchase_orders (company_id,vendor_id,order_number,date,total_amount,notes) VALUES (?,?,?,?,?,?)',
+      [company_id, vendor_id, order_number, date, total_amount, notes]);
+    res.status(201).json({ id: r.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/purchase/:id/status', auth, async (req, res) => {
+  try { await query('UPDATE purchase_orders SET status=? WHERE id=?', [req.body.status, req.params.id]); res.json({ success: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Sales Orders
+router.get('/sales', auth, async (req, res) => {
+  try { const { company_id } = req.query; res.json(await query('SELECT so.*,c.name as customer_name FROM sales_orders so LEFT JOIN customers c ON so.customer_id=c.id WHERE so.company_id=? ORDER BY so.date DESC', [company_id])); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/sales', auth, async (req, res) => {
+  try {
+    const { company_id, customer_id, order_number, date, total_amount, notes } = req.body;
+    const r = await query('INSERT INTO sales_orders (company_id,customer_id,order_number,date,total_amount,notes) VALUES (?,?,?,?,?,?)',
+      [company_id, customer_id, order_number, date, total_amount, notes]);
+    res.status(201).json({ id: r.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/sales/:id/status', auth, async (req, res) => {
+  try { await query('UPDATE sales_orders SET status=? WHERE id=?', [req.body.status, req.params.id]); res.json({ success: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+module.exports = router;

@@ -1,7 +1,54 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT * FROM customers WHERE company_id=? ORDER BY name',[companyId]);res.json(r);});
-router.post('/',authenticate,async(req,res)=>{const{companyId,name,gstin,email,phone,address,creditLimit,creditDays}=req.body;const[r]=await db.query('INSERT INTO customers(company_id,name,gstin,email,phone,address,credit_limit,credit_days)VALUES(?,?,?,?,?,?,?,?)',[companyId,name,gstin,email,phone,address,creditLimit||0,creditDays||30]);const[rows]=await db.query('SELECT * FROM customers WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/:id',authenticate,async(req,res)=>{const{name,gstin,email,phone,address,creditLimit,creditDays}=req.body;await db.query('UPDATE customers SET name=?,gstin=?,email=?,phone=?,address=?,credit_limit=?,credit_days=? WHERE id=?',[name,gstin,email,phone,address,creditLimit,creditDays,req.params.id]);const[r]=await db.query('SELECT * FROM customers WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.delete('/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM customers WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-router.get('/:id/ledger',authenticate,async(req,res)=>{const{companyId}=req.query;const[cust]=await db.query('SELECT * FROM customers WHERE id=?',[req.params.id]);if(!cust.length)return res.status(404).json({error:'Not found'});const[led]=await db.query('SELECT * FROM ledgers WHERE company_id=? AND name=?',[companyId,cust[0].name]);const ledgerId=led.length?led[0].id:null;let entries=[];if(ledgerId){const[rows]=await db.query('SELECT v.date,v.voucher_type,v.voucher_number,v.narration,ve.amount,ve.entry_type FROM vouchers v JOIN voucher_entries ve ON v.id=ve.voucher_id WHERE v.company_id=? AND ve.ledger_id=? ORDER BY v.date',[companyId,ledgerId]);entries=rows;}const now=new Date();let balance=0,a0=0,a30=0,a60=0,a90p=0;entries.forEach(e=>{const diff=Math.floor((now-new Date(e.date))/(1000*60*60*24));const amt=e.entry_type==='DR'?+e.amount:-+e.amount;balance+=amt;if(diff<=30)a0+=amt;else if(diff<=60)a30+=amt;else if(diff<=90)a60+=amt;else a90p+=amt;});res.json({customer:cust[0],entries,balance,aging:{current:a0,days30:a30,days60:a60,days90plus:a90p}});});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/customers', auth, async (req, res) => {
+  try { const { company_id } = req.query; res.json(await query('SELECT * FROM customers WHERE company_id=? ORDER BY name', [company_id])); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/customers', auth, async (req, res) => {
+  try {
+    const { company_id, name, email, phone, address, gstin, credit_limit, ledger_id } = req.body;
+    const r = await query('INSERT INTO customers (company_id,name,email,phone,address,gstin,credit_limit,ledger_id) VALUES (?,?,?,?,?,?,?,?)',
+      [company_id, name, email, phone, address, gstin, credit_limit || 0, ledger_id || null]);
+    res.status(201).json({ id: r.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/customers/:id', auth, async (req, res) => {
+  try {
+    const { name, email, phone, address, gstin, credit_limit } = req.body;
+    await query('UPDATE customers SET name=?,email=?,phone=?,address=?,gstin=?,credit_limit=? WHERE id=?', [name, email, phone, address, gstin, credit_limit, req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.delete('/customers/:id', auth, async (req, res) => {
+  try { await query('DELETE FROM customers WHERE id=?', [req.params.id]); res.json({ success: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/vendors', auth, async (req, res) => {
+  try { const { company_id } = req.query; res.json(await query('SELECT * FROM vendors WHERE company_id=? ORDER BY name', [company_id])); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/vendors', auth, async (req, res) => {
+  try {
+    const { company_id, name, email, phone, address, gstin, ledger_id } = req.body;
+    const r = await query('INSERT INTO vendors (company_id,name,email,phone,address,gstin,ledger_id) VALUES (?,?,?,?,?,?,?)',
+      [company_id, name, email, phone, address, gstin, ledger_id || null]);
+    res.status(201).json({ id: r.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/vendors/:id', auth, async (req, res) => {
+  try {
+    const { name, email, phone, address, gstin } = req.body;
+    await query('UPDATE vendors SET name=?,email=?,phone=?,address=?,gstin=? WHERE id=?', [name, email, phone, address, gstin, req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.delete('/vendors/:id', auth, async (req, res) => {
+  try { await query('DELETE FROM vendors WHERE id=?', [req.params.id]); res.json({ success: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+module.exports = router;

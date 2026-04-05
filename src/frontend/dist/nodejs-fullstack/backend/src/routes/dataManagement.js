@@ -1,7 +1,19 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate,requireAdmin}=require('../middleware/auth');
-router.get('/:companyId',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM data_backups WHERE company_id=? ORDER BY created_at DESC',[req.params.companyId]);res.json(r);});
-router.post('/',authenticate,async(req,res)=>{const{companyId,filename,sizeKb,type}=req.body;const[r]=await db.query('INSERT INTO data_backups(company_id,filename,size_kb,type,created_by)VALUES(?,?,?,?,?)',[companyId,filename,sizeKb,type||'manual',req.user.username]);const[rows]=await db.query('SELECT * FROM data_backups WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.delete('/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM data_backups WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-router.get('/export/:companyId',authenticate,async(req,res)=>{const cId=req.params.companyId;const[company]=await db.query('SELECT * FROM companies WHERE id=?',[cId]);const[ledgers]=await db.query('SELECT * FROM ledgers WHERE company_id=?',[cId]);const[vouchers]=await db.query('SELECT * FROM vouchers WHERE company_id=?',[cId]);const[entries]=await db.query('SELECT ve.* FROM voucher_entries ve JOIN vouchers v ON ve.voucher_id=v.id WHERE v.company_id=?',[cId]);const[stockItems]=await db.query('SELECT * FROM stock_items WHERE company_id=?',[cId]);const[employees]=await db.query('SELECT * FROM employees WHERE company_id=?',[cId]);const[customers]=await db.query('SELECT * FROM customers WHERE company_id=?',[cId]);const[vendors]=await db.query('SELECT * FROM vendors WHERE company_id=?',[cId]);res.json({exportedAt:new Date(),company:company[0],ledgers,vouchers,voucherEntries:entries,stockItems,employees,customers,vendors});});
-router.post('/import/:companyId',authenticate,requireAdmin,async(req,res)=>{res.json({message:'Import received',companyId:req.params.companyId,recordCount:Object.keys(req.body.data||{}).length});});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/export', auth, async (req, res) => {
+  try{
+    const {company_id}=req.query;
+    const [co,le,vo,cu,ve,em,st]=await Promise.all([query('SELECT * FROM companies WHERE id=?',[company_id]),query('SELECT * FROM ledgers WHERE company_id=?',[company_id]),query('SELECT * FROM vouchers WHERE company_id=?',[company_id]),query('SELECT * FROM customers WHERE company_id=?',[company_id]),query('SELECT * FROM vendors WHERE company_id=?',[company_id]),query('SELECT * FROM employees WHERE company_id=?',[company_id]),query('SELECT * FROM stock_items WHERE company_id=?',[company_id])]);
+    res.json({company:co[0],ledgers:le,vouchers:vo,customers:cu,vendors:ve,employees:em,stock_items:st,exported_at:new Date().toISOString()});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.get('/summary', auth, async (req, res) => {
+  try{
+    const [a,b,c,d,e]=await Promise.all([query('SELECT COUNT(*) as cnt FROM companies'),query('SELECT COUNT(*) as cnt FROM ledgers'),query('SELECT COUNT(*) as cnt FROM vouchers'),query('SELECT COUNT(*) as cnt FROM employees'),query('SELECT COUNT(*) as cnt FROM stock_items')]);
+    res.json({companies:a[0]?.cnt,ledgers:b[0]?.cnt,vouchers:c[0]?.cnt,employees:d[0]?.cnt,stock_items:e[0]?.cnt});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+module.exports = router;

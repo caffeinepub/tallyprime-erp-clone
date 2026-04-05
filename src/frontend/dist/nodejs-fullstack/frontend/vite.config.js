@@ -1,12 +1,28 @@
-import { fileURLToPath, URL } from 'url';
-import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
 export default defineConfig({
-  logLevel: 'error',
-  build: { emptyOutDir: true, sourcemap: false, minify: false },
-  css: { postcss: './postcss.config.js' },
-  optimizeDeps: { esbuildOptions: { define: { global: 'globalThis' } } },
-  server: { port: 5173, proxy: { '/api': { target: 'http://localhost:3001', changeOrigin: true } } },
   plugins: [react()],
-  resolve: { alias: [{ find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) }] }
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true
+      }
+    }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          router: ['react-router-dom'],
+          query: ['@tanstack/react-query'],
+          charts: ['recharts'],
+          ui: ['lucide-react', 'clsx', 'class-variance-authority']
+        }
+      }
+    }
+  }
 });

@@ -1,7 +1,35 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM currencies ORDER BY is_base DESC,id');res.json(r);});
-router.post('/',authenticate,async(req,res)=>{const{code,symbol,name,exchangeRate,isBase}=req.body;try{const[r]=await db.query('INSERT INTO currencies(code,symbol,name,exchange_rate,is_base)VALUES(?,?,?,?,?)',[code,symbol,name,exchangeRate||1,isBase?1:0]);const[rows]=await db.query('SELECT * FROM currencies WHERE id=?',[r.insertId]);res.json(rows[0]);}catch(e){res.status(400).json({error:e.message});}});
-router.put('/:id',authenticate,async(req,res)=>{const{exchangeRate,narration}=req.body;await db.query('UPDATE currencies SET exchange_rate=? WHERE id=?',[exchangeRate,req.params.id]);await db.query('INSERT INTO exchange_rate_history(currency_id,date,rate,narration)VALUES(?,NOW(),?,?)',[req.params.id,exchangeRate,narration||'']);const[r]=await db.query('SELECT * FROM currencies WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.delete('/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM currencies WHERE id=? AND is_base=0',[req.params.id]);res.json({message:'Deleted'});});
-router.get('/:id/history',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM exchange_rate_history WHERE currency_id=? ORDER BY date DESC',[req.params.id]);res.json(r);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/', auth, async (req, res) => {
+  try { res.json(await query('SELECT * FROM currencies ORDER BY is_base DESC, code')); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/', auth, async (req, res) => {
+  try {
+    const { code, symbol, name, exchange_rate, is_base } = req.body;
+    const r = await query('INSERT INTO currencies (code,symbol,name,exchange_rate,is_base) VALUES (?,?,?,?,?)', [code, symbol, name, exchange_rate || 1, is_base ? 1 : 0]);
+    res.status(201).json({ id: r.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/:id', auth, async (req, res) => {
+  try {
+    const { code, symbol, name, exchange_rate, is_base } = req.body;
+    await query('UPDATE currencies SET code=?,symbol=?,name=?,exchange_rate=?,is_base=? WHERE id=?', [code, symbol, name, exchange_rate, is_base ? 1 : 0, req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.get('/:id/rates', auth, async (req, res) => {
+  try { res.json(await query('SELECT * FROM exchange_rates WHERE currency_id=? ORDER BY date DESC', [req.params.id])); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/:id/rates', auth, async (req, res) => {
+  try {
+    const { date, rate, narration } = req.body;
+    const r = await query('INSERT INTO exchange_rates (currency_id,date,rate,narration) VALUES (?,?,?,?)', [req.params.id, date, rate, narration]);
+    res.status(201).json({ id: r.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+module.exports = router;

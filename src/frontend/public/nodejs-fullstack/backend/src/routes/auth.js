@@ -1,6 +1,67 @@
-const router=require('express').Router(),bcrypt=require('bcryptjs'),jwt=require('jsonwebtoken'),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.post('/login',async(req,res)=>{const{username,password}=req.body;if(!username||!password)return res.status(400).json({error:'Required'});try{const[rows]=await db.query('SELECT * FROM users WHERE username=? AND is_active=1',[username]);if(!rows.length)return res.status(401).json({error:'Invalid credentials'});const valid=await bcrypt.compare(password,rows[0].password_hash);if(!valid)return res.status(401).json({error:'Invalid credentials'});const u=rows[0];const token=jwt.sign({id:u.id,username:u.username,role:u.role},process.env.JWT_SECRET||'secret',{expiresIn:process.env.JWT_EXPIRES_IN||'7d'});res.json({token,user:{id:u.id,username:u.username,role:u.role,fullName:u.full_name,email:u.email,theme:u.theme}});}catch(e){res.status(500).json({error:e.message});}});
-router.get('/me',authenticate,async(req,res)=>{const u=req.user;res.json({id:u.id,username:u.username,role:u.role,fullName:u.full_name,email:u.email,phone:u.phone,theme:u.theme});});
-router.put('/profile',authenticate,async(req,res)=>{const{fullName,email,phone,profileImage,theme}=req.body;await db.query('UPDATE users SET full_name=?,email=?,phone=?,profile_image=?,theme=? WHERE id=?',[fullName,email,phone,profileImage,theme,req.user.id]);res.json({message:'Updated'});});
-router.put('/change-password',authenticate,async(req,res)=>{const{oldPassword,newPassword}=req.body;const valid=await bcrypt.compare(oldPassword,req.user.password_hash);if(!valid)return res.status(400).json({error:'Old password incorrect'});const hash=await bcrypt.hash(newPassword,10);await db.query('UPDATE users SET password_hash=? WHERE id=?',[hash,req.user.id]);res.json({message:'Changed'});});
-module.exports=router;
+const express = require('express');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { query } = require('../database/db');
+const { cacheGet, cacheSet } = require('../database/redis');
+const router = express.Router();
+const { auth } = require('../middleware/auth');
+
+// POST /api/auth/login
+router.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+    const users = await query('SELECT * FROM users WHERE username = ? AND is_active = 1', [username]);
+    const user = Array.isArray(users) ? users[0] : null;
+    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      process.env.JWT_SECRET || 'hisabkitab-secret',
+      { expiresIn: '24h' }
+    );
+    res.json({ token, user: { id: user.id, username: user.username, role: user.role, display_name: user.display_name } });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /api/auth/me
+router.get('/me', auth, async (req, res) => {
+  try {
+    const cacheKey = `user:profile:${req.user.username}`;
+    const cached = await cacheGet(cacheKey);
+    if (cached) return res.json(cached);
+    const users = await query('SELECT id, username, role, display_name, email, phone, theme_preference FROM users WHERE id = ?', [req.user.id]);
+    const user = Array.isArray(users) ? users[0] : null;
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    await cacheSet(cacheKey, user, 300);
+    res.json(user);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/auth/profile
+router.put('/profile', auth, async (req, res) => {
+  try {
+    const { display_name, email, phone, theme_preference } = req.body;
+    await query('UPDATE users SET display_name=?, email=?, phone=?, theme_preference=? WHERE id=?',
+      [display_name, email, phone, theme_preference, req.user.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/auth/change-password
+router.put('/change-password', auth, async (req, res) => {
+  try {
+    const { current_password, new_password } = req.body;
+    const users = await query('SELECT * FROM users WHERE id = ?', [req.user.id]);
+    const user = Array.isArray(users) ? users[0] : null;
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const valid = await bcrypt.compare(current_password, user.password_hash);
+    if (!valid) return res.status(400).json({ error: 'Current password incorrect' });
+    const hash = await bcrypt.hash(new_password, 10);
+    await query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, req.user.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+module.exports = router;

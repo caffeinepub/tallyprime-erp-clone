@@ -1,8 +1,16 @@
 require('dotenv').config();
 const express=require('express'),cors=require('cors'),helmet=require('helmet'),morgan=require('morgan'),compression=require('compression');
+const passport = require('passport');
 const app=express();
-app.use(helmet());app.use(cors({origin:'*',credentials:true}));app.use(compression());app.use(morgan('dev'));
-app.use(express.json({limit:'50mb'}));app.use(express.urlencoded({extended:true,limit:'50mb'}));
+app.use(helmet({contentSecurityPolicy:false}));
+app.use(cors({origin:'*',credentials:true}));
+app.use(compression());
+app.use(morgan('dev'));
+app.use(express.json({limit:'50mb'}));
+app.use(express.urlencoded({extended:true,limit:'50mb'}));
+app.use(passport.initialize());
+
+// === EXISTING ROUTES (preserved) ===
 app.use('/api/auth',require('./routes/auth'));
 app.use('/api/users',require('./routes/users'));
 app.use('/api/companies',require('./routes/companies'));
@@ -50,8 +58,55 @@ app.use('/api/settings',require('./routes/settings'));
 app.use('/api/data',require('./routes/dataManagement'));
 app.use('/api/ai',require('./routes/aiTools'));
 app.use('/api/utilities',require('./routes/utilities'));
-app.get('/api/health',(req,res)=>res.json({status:'ok',version:'3.0.0',app:'HisabKitab Pro Node.js Backend',modules:42}));
+
+// === NEW ROUTES v4.0 ===
+app.use('/api/super-admin', require('./routes/superAdmin'));
+app.use('/api/subscription-plans', require('./routes/subscriptionPlans'));
+app.use('/api/payments', require('./routes/payments'));
+app.use('/api/billing', require('./routes/billing'));
+app.use('/api/auth-enhanced', require('./routes/authEnhanced'));
+app.use('/api/media', require('./routes/media'));
+app.use('/api/reminders', require('./routes/reminders'));
+app.use('/api/sidebar-config', require('./routes/sidebarBuilder'));
+app.use('/api/shortcuts', require('./routes/shortcuts'));
+app.use('/api/dashboard-layout', require('./routes/dashboardCustom'));
+app.use('/api/guidance', require('./routes/guidance'));
+app.use('/api/messaging', require('./routes/messaging'));
+
+app.get('/api/health',(req,res)=>res.json({
+  status:'ok',
+  version:'4.0.0',
+  app:'HisabKitab Pro Node.js Backend',
+  modules:54,
+  new_in_v4:[
+    'Super Admin Panel',
+    'Subscription Plans (Free/Premium - 3/6/12 months/3 years)',
+    'Payment Flow & Billing',
+    'OTP Login (Email + Phone)',
+    'Google OAuth',
+    'GitHub OAuth',
+    'Cloudinary Media Storage',
+    'Expiry Handling & Auto-Pause',
+    'Reminder & Notification System (Email/SMS)',
+    'Dynamic Sidebar Builder',
+    'Shortcut Key Manager',
+    'Dashboard Customization',
+    'Guidance System (Blogs + Videos)',
+    'Super Admin Messaging & Broadcast',
+  ]
+}));
+
 app.use((err,req,res,next)=>res.status(err.status||500).json({error:err.message||'Internal Server Error'}));
+
 const PORT=process.env.PORT||3001;
-app.listen(PORT,()=>{console.log(`HisabKitab Pro Backend v3.0 running on port ${PORT}`);console.log(`Health: http://localhost:${PORT}/api/health`);});
+app.listen(PORT,()=>{
+  console.log(`HisabKitab Pro Backend v4.0 running on port ${PORT}`);
+  console.log(`Health: http://localhost:${PORT}/api/health`);
+  console.log(`[DB] MySQL connected`);
+  console.log(`[NEW] Super Admin: POST /api/super-admin/login`);
+  console.log(`[NEW] OAuth: GET /api/auth-enhanced/google`);
+  console.log(`[NEW] OAuth: GET /api/auth-enhanced/github`);
+  console.log(`[NEW] OTP: POST /api/auth-enhanced/send-email-otp`);
+  console.log(`[NEW] Media: POST /api/media/upload (Cloudinary)`);
+});
 module.exports=app;

@@ -4,8 +4,10 @@ async function migrate(){
   const c=await mysql.createConnection({host:process.env.DB_HOST||'localhost',port:parseInt(process.env.DB_PORT)||3306,user:process.env.DB_USER||'root',password:process.env.DB_PASSWORD||'',multipleStatements:true});
   const db=process.env.DB_NAME||'hisabkitab_pro';
   await c.query(`CREATE DATABASE IF NOT EXISTS \`${db}\`; USE \`${db}\`;`);
+
+  // --- EXISTING TABLES (preserved) ---
   const tables=[
-    `CREATE TABLE IF NOT EXISTS users(id INT AUTO_INCREMENT PRIMARY KEY,username VARCHAR(100) UNIQUE NOT NULL,password_hash VARCHAR(255) NOT NULL,role ENUM('admin','accountant','auditor','viewer') DEFAULT 'viewer',full_name VARCHAR(200),email VARCHAR(200),phone VARCHAR(20),profile_image LONGTEXT,theme VARCHAR(50) DEFAULT 'default',custom_shortcuts TEXT,is_active TINYINT DEFAULT 1,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`,
+    `CREATE TABLE IF NOT EXISTS users(id INT AUTO_INCREMENT PRIMARY KEY,username VARCHAR(100) UNIQUE NOT NULL,password_hash VARCHAR(255) NOT NULL,role ENUM('admin','accountant','auditor','viewer') DEFAULT 'viewer',full_name VARCHAR(200),email VARCHAR(200),phone VARCHAR(20),profile_image LONGTEXT,theme VARCHAR(50) DEFAULT 'default',custom_shortcuts TEXT,is_active TINYINT DEFAULT 1,approval_status VARCHAR(50) DEFAULT 'approved',created_at DATETIME DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`,
     `CREATE TABLE IF NOT EXISTS companies(id INT AUTO_INCREMENT PRIMARY KEY,name VARCHAR(255) NOT NULL,financial_year_start VARCHAR(20),financial_year_end VARCHAR(20),currency VARCHAR(10) DEFAULT 'INR',gstin VARCHAR(20),address TEXT,pan VARCHAR(20),state_code VARCHAR(5),state_name VARCHAR(100),phone VARCHAR(20),email VARCHAR(200),website VARCHAR(255),logo LONGTEXT,brand_color VARCHAR(20),tagline VARCHAR(255),signature LONGTEXT,invoice_prefix VARCHAR(20) DEFAULT 'INV',owner VARCHAR(100),is_active TINYINT DEFAULT 1,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`,
     `CREATE TABLE IF NOT EXISTS ledger_groups(id INT AUTO_INCREMENT PRIMARY KEY,name VARCHAR(200) NOT NULL,parent_group_id INT,nature ENUM('DR','CR') DEFAULT 'DR',is_predefined TINYINT DEFAULT 0,created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`,
     `CREATE TABLE IF NOT EXISTS ledgers(id INT AUTO_INCREMENT PRIMARY KEY,company_id INT NOT NULL,name VARCHAR(200) NOT NULL,group_id INT,opening_balance DECIMAL(18,2) DEFAULT 0,balance_type ENUM('DR','CR') DEFAULT 'DR',phone VARCHAR(20),email VARCHAR(200),gstin VARCHAR(20),address TEXT,pan VARCHAR(20),bank_account VARCHAR(50),ifsc VARCHAR(20),bank_name VARCHAR(100),is_active TINYINT DEFAULT 1,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(company_id)REFERENCES companies(id)ON DELETE CASCADE)`,
@@ -82,10 +84,57 @@ async function migrate(){
     `CREATE TABLE IF NOT EXISTS app_settings(id INT AUTO_INCREMENT PRIMARY KEY,company_id INT,setting_key VARCHAR(100) NOT NULL,setting_value LONGTEXT,updated_by VARCHAR(100),updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,UNIQUE KEY uq_setting(company_id,setting_key))`,
     `CREATE TABLE IF NOT EXISTS premium_features(id INT AUTO_INCREMENT PRIMARY KEY,feature_key VARCHAR(100) UNIQUE NOT NULL,feature_name VARCHAR(200),is_enabled TINYINT DEFAULT 1,updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`,
     `CREATE TABLE IF NOT EXISTS contact_queries(id INT AUTO_INCREMENT PRIMARY KEY,name VARCHAR(200),email VARCHAR(200),phone VARCHAR(20),subject VARCHAR(255),message TEXT,reply TEXT,replied_by VARCHAR(100),replied_at DATETIME,status ENUM('open','replied','closed') DEFAULT 'open',created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-    `CREATE TABLE IF NOT EXISTS invoice_templates(id INT AUTO_INCREMENT PRIMARY KEY,company_id INT NOT NULL,name VARCHAR(200),template_html LONGTEXT,is_default TINYINT DEFAULT 0,accent_color VARCHAR(20),show_logo TINYINT DEFAULT 1,show_signature TINYINT DEFAULT 1,show_gst TINYINT DEFAULT 1,show_bank TINYINT DEFAULT 1,paper_size VARCHAR(20) DEFAULT 'A4',created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`
+    `CREATE TABLE IF NOT EXISTS invoice_templates(id INT AUTO_INCREMENT PRIMARY KEY,company_id INT NOT NULL,name VARCHAR(200),template_html LONGTEXT,is_default TINYINT DEFAULT 0,accent_color VARCHAR(20),show_logo TINYINT DEFAULT 1,show_signature TINYINT DEFAULT 1,show_gst TINYINT DEFAULT 1,show_bank TINYINT DEFAULT 1,paper_size VARCHAR(20) DEFAULT 'A4',created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+
+    // --- NEW TABLES v4.0 ---
+    // Super Admin
+    `CREATE TABLE IF NOT EXISTS super_admins(id INT AUTO_INCREMENT PRIMARY KEY,username VARCHAR(100) UNIQUE NOT NULL,password_hash VARCHAR(255) NOT NULL,full_name VARCHAR(200),email VARCHAR(200),is_active TINYINT DEFAULT 1,last_login DATETIME,created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+
+    // Subscription Plans (platform-level plans, not company recurring billing)
+    `CREATE TABLE IF NOT EXISTS subscription_plans(id INT AUTO_INCREMENT PRIMARY KEY,name VARCHAR(200) NOT NULL,plan_type ENUM('free','premium') DEFAULT 'premium',duration_months INT NOT NULL,price DECIMAL(10,2) DEFAULT 0,features_json LONGTEXT,max_users INT DEFAULT 10,max_companies INT DEFAULT 5,is_active TINYINT DEFAULT 1,created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+
+    // Admin Subscriptions (which plan each admin is on)
+    `CREATE TABLE IF NOT EXISTS admin_subscriptions(id INT AUTO_INCREMENT PRIMARY KEY,user_id INT UNIQUE NOT NULL,plan_id INT,plan_name VARCHAR(200),plan_type VARCHAR(50) DEFAULT 'free',start_date DATETIME,expiry_date DATETIME,status ENUM('active','expired','cancelled','pending') DEFAULT 'pending',created_at DATETIME DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(user_id)REFERENCES users(id)ON DELETE CASCADE)`,
+
+    // Payment History
+    `CREATE TABLE IF NOT EXISTS payment_history(id INT AUTO_INCREMENT PRIMARY KEY,user_id INT NOT NULL,plan_id INT,amount DECIMAL(10,2),payment_method VARCHAR(50) DEFAULT 'online',txn_ref VARCHAR(100) UNIQUE,gateway_txn_id VARCHAR(200),status ENUM('initiated','success','failed','refunded') DEFAULT 'initiated',failure_reason VARCHAR(500),paid_at DATETIME,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(user_id)REFERENCES users(id)ON DELETE CASCADE)`,
+
+    // OTP Codes
+    `CREATE TABLE IF NOT EXISTS otp_codes(id INT AUTO_INCREMENT PRIMARY KEY,identifier VARCHAR(200) NOT NULL,otp VARCHAR(10) NOT NULL,purpose VARCHAR(50) DEFAULT 'login',expires_at DATETIME NOT NULL,is_used TINYINT DEFAULT 0,created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+
+    // Social Auth
+    `CREATE TABLE IF NOT EXISTS social_auth(id INT AUTO_INCREMENT PRIMARY KEY,user_id INT NOT NULL,provider ENUM('google','github') NOT NULL,provider_id VARCHAR(200) NOT NULL,access_token LONGTEXT,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,UNIQUE KEY uq_social(provider,provider_id),FOREIGN KEY(user_id)REFERENCES users(id)ON DELETE CASCADE)`,
+
+    // Media Files (Cloudinary)
+    `CREATE TABLE IF NOT EXISTS media_files(id INT AUTO_INCREMENT PRIMARY KEY,user_id INT NOT NULL,company_id INT,file_name VARCHAR(500),file_type VARCHAR(100),cloudinary_id VARCHAR(500),url LONGTEXT,thumbnail_url LONGTEXT,size_bytes INT,resource_type ENUM('image','video') DEFAULT 'image',created_at DATETIME DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(user_id)REFERENCES users(id)ON DELETE CASCADE)`,
+
+    // Sidebar Builder
+    `CREATE TABLE IF NOT EXISTS sidebar_configs(id INT AUTO_INCREMENT PRIMARY KEY,user_id INT NOT NULL,item_id VARCHAR(100) NOT NULL,label VARCHAR(200),icon VARCHAR(100),group_name VARCHAR(100) DEFAULT 'Main',position INT DEFAULT 99,is_visible TINYINT DEFAULT 1,is_group TINYINT DEFAULT 0,items_json LONGTEXT,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,UNIQUE KEY uq_sidebar(user_id,item_id))`,
+
+    // Shortcut Configs
+    `CREATE TABLE IF NOT EXISTS shortcut_configs(id INT AUTO_INCREMENT PRIMARY KEY,user_id INT NOT NULL,key_combo VARCHAR(50) NOT NULL,action VARCHAR(200),label VARCHAR(200),module VARCHAR(100) DEFAULT 'global',created_at DATETIME DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(user_id)REFERENCES users(id)ON DELETE CASCADE)`,
+
+    // Dashboard Layouts
+    `CREATE TABLE IF NOT EXISTS dashboard_layouts(id INT AUTO_INCREMENT PRIMARY KEY,user_id INT UNIQUE NOT NULL,layout_json LONGTEXT,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,FOREIGN KEY(user_id)REFERENCES users(id)ON DELETE CASCADE)`,
+
+    // Guidance Content
+    `CREATE TABLE IF NOT EXISTS guidance_content(id INT AUTO_INCREMENT PRIMARY KEY,title VARCHAR(500) NOT NULL,content_type ENUM('blog','video','tutorial') DEFAULT 'blog',body LONGTEXT,video_url VARCHAR(1000),thumbnail_url LONGTEXT,tags LONGTEXT,is_published TINYINT DEFAULT 0,view_count INT DEFAULT 0,created_by VARCHAR(100),created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+
+    // Messages
+    `CREATE TABLE IF NOT EXISTS messages(id INT AUTO_INCREMENT PRIMARY KEY,sender_type ENUM('super_admin','admin') DEFAULT 'super_admin',sender_id INT,recipient_id INT NOT NULL,subject VARCHAR(500),message LONGTEXT,channels_json LONGTEXT,is_read TINYINT DEFAULT 0,read_at DATETIME,created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+
+    // Notification Logs
+    `CREATE TABLE IF NOT EXISTS notification_logs(id INT AUTO_INCREMENT PRIMARY KEY,user_id INT,type VARCHAR(100),channel VARCHAR(100),message LONGTEXT,sent_by VARCHAR(100),status VARCHAR(50) DEFAULT 'sent',created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+
+    // System Settings (for super admin configurable values)
+    `CREATE TABLE IF NOT EXISTS system_settings(id INT AUTO_INCREMENT PRIMARY KEY,setting_key VARCHAR(200) UNIQUE NOT NULL,setting_value LONGTEXT,updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`,
+
+    // Premium Feature Flags (global, controlled by super admin)
+    `CREATE TABLE IF NOT EXISTS premium_feature_flags(id INT AUTO_INCREMENT PRIMARY KEY,feature_key VARCHAR(200) UNIQUE NOT NULL,is_enabled TINYINT DEFAULT 1,updated_by VARCHAR(100),updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`
   ];
-  for(const t of tables)await c.execute(t);
-  console.log('[MIGRATE] All 55+ tables created successfully.');
+
+  for(const t of tables) await c.execute(t);
+  console.log('[MIGRATE] All 70+ tables created successfully (v4.0 with Super Admin, Subscriptions, OTP, OAuth, Cloudinary, Sidebar, Shortcuts, Dashboard, Guidance, Messaging).');
   await c.end();
 }
 migrate().catch(e=>{console.error('[MIGRATE] Failed:',e.message);process.exit(1);});

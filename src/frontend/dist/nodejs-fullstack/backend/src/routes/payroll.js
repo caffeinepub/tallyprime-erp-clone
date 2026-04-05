@@ -1,9 +1,66 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/salary-structures',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT ss.*,e.name as employee_name FROM salary_structures ss LEFT JOIN employees e ON ss.employee_id=e.id WHERE ss.company_id=?',[companyId]);res.json(r);});
-router.get('/salary-structures/:employeeId',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM salary_structures WHERE employee_id=?',[req.params.employeeId]);res.json(r[0]||null);});
-router.post('/salary-structures',authenticate,async(req,res)=>{const{companyId,employeeId,basic,hra,da,conveyance,specialAllowance,otherAllowances,pf,esi,tds,professionalTax,otherDeductions}=req.body;await db.query('INSERT INTO salary_structures(company_id,employee_id,basic,hra,da,conveyance,special_allowance,other_allowances,pf,esi,tds,professional_tax,other_deductions)VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)ON DUPLICATE KEY UPDATE basic=VALUES(basic),hra=VALUES(hra),da=VALUES(da),conveyance=VALUES(conveyance),special_allowance=VALUES(special_allowance),other_allowances=VALUES(other_allowances),pf=VALUES(pf),esi=VALUES(esi),tds=VALUES(tds),professional_tax=VALUES(professional_tax),other_deductions=VALUES(other_deductions)',[companyId,employeeId,basic,hra,da,conveyance,specialAllowance,otherAllowances,pf,esi,tds,professionalTax,otherDeductions]);const[r]=await db.query('SELECT * FROM salary_structures WHERE employee_id=?',[employeeId]);res.json(r[0]);});
-router.get('/vouchers',authenticate,async(req,res)=>{const{companyId}=req.query;const[rows]=await db.query('SELECT * FROM payroll_vouchers WHERE company_id=? ORDER BY year DESC,month DESC',[companyId]);const result=await Promise.all(rows.map(async pv=>{const[e]=await db.query('SELECT * FROM payroll_entries WHERE payroll_voucher_id=?',[pv.id]);return{...pv,entries:e};}));res.json(result);});
-router.post('/vouchers',authenticate,async(req,res)=>{const{companyId,month,year,entries}=req.body;const conn=await db.getConnection();try{await conn.beginTransaction();const[r]=await conn.query('INSERT INTO payroll_vouchers(company_id,month,year)VALUES(?,?,?)',[companyId,month,year]);const pvId=r.insertId;for(const e of(entries||[]))await conn.query('INSERT INTO payroll_entries(payroll_voucher_id,employee_id,employee_name,department,designation,basic,hra,da,conveyance,special_allowance,other_allowances,gross_earnings,pf,esi,tds,professional_tax,other_deductions,total_deductions,net_payable,working_days,paid_days,lop_days)VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',[pvId,e.employeeId,e.employeeName,e.department,e.designation,e.basic,e.hra,e.da,e.conveyance,e.specialAllowance,e.otherAllowances,e.grossEarnings,e.pf,e.esi,e.tds,e.professionalTax,e.otherDeductions,e.totalDeductions,e.netPayable,e.workingDays||26,e.paidDays||26,e.lopDays||0]);await conn.commit();res.json({voucherId:pvId});}catch(e){await conn.rollback();res.status(500).json({error:e.message});}finally{conn.release();}});
-router.get('/register/:companyId',authenticate,async(req,res)=>{const{month,year}=req.query;let sql='SELECT pe.*,pv.month,pv.year FROM payroll_entries pe JOIN payroll_vouchers pv ON pe.payroll_voucher_id=pv.id WHERE pv.company_id=?';const p=[req.params.companyId];if(month){sql+=' AND pv.month=?';p.push(month);}if(year){sql+=' AND pv.year=?';p.push(year);}sql+=' ORDER BY pv.year DESC,pv.month DESC';const[r]=await db.query(sql,p);res.json(r);});
-router.get('/salary-slip/:companyId',authenticate,async(req,res)=>{const{employeeId,month,year}=req.query;const[r]=await db.query('SELECT pe.*,e.pan,e.aadhaar,e.bank_account,e.bank_name,pv.month,pv.year FROM payroll_entries pe JOIN payroll_vouchers pv ON pe.payroll_voucher_id=pv.id LEFT JOIN employees e ON pe.employee_id=e.id WHERE pv.company_id=? AND pe.employee_id=? AND pv.month=? AND pv.year=?',[req.params.companyId,employeeId,month,year]);if(!r.length)return res.status(404).json({error:'Not found'});res.json(r[0]);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+const { cacheGet, cacheSet } = require('../database/redis');
+
+router.get('/employees', auth, async (req, res) => {
+  try {
+    const { company_id } = req.query;
+    const cKey = `employees:${company_id}`;
+    const c = await cacheGet(cKey);
+    if (c) return res.json(c);
+    const rows = await query('SELECT * FROM employees WHERE company_id=? ORDER BY name', [company_id]);
+    await cacheSet(cKey, rows, 600);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/employees', auth, async (req, res) => {
+  try {
+    const { company_id, employee_code, name, department, designation, date_of_joining, pan, aadhaar, bank_account, bank_name, ifsc_code, pf_applicable, esi_applicable } = req.body;
+    const r = await query('INSERT INTO employees (company_id,employee_code,name,department,designation,date_of_joining,pan,aadhaar,bank_account,bank_name,ifsc_code,pf_applicable,esi_applicable) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      [company_id, employee_code, name, department, designation, date_of_joining, pan, aadhaar, bank_account, bank_name, ifsc_code, pf_applicable ? 1 : 0, esi_applicable ? 1 : 0]);
+    res.status(201).json({ id: r.insertId, name });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/employees/:id', auth, async (req, res) => {
+  try {
+    const { employee_code, name, department, designation, date_of_joining, pan, aadhaar, bank_account, bank_name, ifsc_code, pf_applicable, esi_applicable, is_active } = req.body;
+    await query('UPDATE employees SET employee_code=?,name=?,department=?,designation=?,date_of_joining=?,pan=?,aadhaar=?,bank_account=?,bank_name=?,ifsc_code=?,pf_applicable=?,esi_applicable=?,is_active=? WHERE id=?',
+      [employee_code, name, department, designation, date_of_joining, pan, aadhaar, bank_account, bank_name, ifsc_code, pf_applicable?1:0, esi_applicable?1:0, is_active?1:0, req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/salary-structures', auth, async (req, res) => {
+  try {
+    const { company_id } = req.query;
+    res.json(await query('SELECT * FROM salary_structures WHERE company_id=?', [company_id]));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/salary-structures', auth, async (req, res) => {
+  try {
+    const { company_id, employee_id, basic, hra, da, conveyance, special_allowance, other_allowances, pf, esi, tds, professional_tax, other_deductions } = req.body;
+    await query('INSERT INTO salary_structures (company_id,employee_id,basic,hra,da,conveyance,special_allowance,other_allowances,pf,esi,tds,professional_tax,other_deductions) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE basic=?,hra=?,da=?,conveyance=?,special_allowance=?,other_allowances=?,pf=?,esi=?,tds=?,professional_tax=?,other_deductions=?',
+      [company_id,employee_id,basic,hra,da,conveyance,special_allowance,other_allowances,pf,esi,tds,professional_tax,other_deductions,
+       basic,hra,da,conveyance,special_allowance,other_allowances,pf,esi,tds,professional_tax,other_deductions]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/payroll-vouchers', auth, async (req, res) => {
+  try {
+    const { company_id } = req.query;
+    res.json(await query('SELECT * FROM payroll_vouchers WHERE company_id=? ORDER BY year DESC, month DESC', [company_id]));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/payroll-vouchers', auth, async (req, res) => {
+  try {
+    const { company_id, month, year, entries } = req.body;
+    const r = await query('INSERT INTO payroll_vouchers (company_id,month,year,entries) VALUES (?,?,?,?)',
+      [company_id, month, year, JSON.stringify(entries)]);
+    res.status(201).json({ id: r.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+module.exports = router;

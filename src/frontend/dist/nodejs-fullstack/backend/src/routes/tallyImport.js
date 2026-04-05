@@ -1,5 +1,16 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/history',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT * FROM tally_imports WHERE company_id=? ORDER BY imported_at DESC',[companyId]);res.json(r);});
-router.post('/import',authenticate,async(req,res)=>{const{companyId,fileName,totalRecords,importedRecords,errors,sourceType}=req.body;const[r]=await db.query('INSERT INTO tally_imports(company_id,file_name,total_records,imported_records,errors_json,source_type)VALUES(?,?,?,?,?,?)',[companyId,fileName,totalRecords,importedRecords,JSON.stringify(errors||[]),sourceType||'XML']);const[rows]=await db.query('SELECT * FROM tally_imports WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.post('/process',authenticate,async(req,res)=>{const{companyId,data,type}=req.body;const count=Array.isArray(data)?data.length:0;res.json({processedCount:count,message:`Processed ${count} records from ${type||'file'}`});});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/', auth, async (req, res) => {
+  try{const {company_id}=req.query;res.json(await query('SELECT * FROM tally_imports WHERE company_id=? ORDER BY imported_at DESC',[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/process', auth, async (req, res) => {
+  try{
+    const {company_id,file_name,import_type,records}=req.body;
+    const r=await query('INSERT INTO tally_imports (company_id,file_name,import_type,status,records_imported) VALUES (?,?,?,"completed",?)',[company_id,file_name||'import.xml',import_type||'xml',records?.length||0]);
+    res.status(201).json({id:r.insertId,records_imported:records?.length||0});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+module.exports = router;

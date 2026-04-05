@@ -1,12 +1,42 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/masters',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM service_masters WHERE company_id=? ORDER BY id',[req.query.companyId]);res.json(r);});
-router.post('/masters',authenticate,async(req,res)=>{const{companyId,name,code,rate,unit,description}=req.body;const[r]=await db.query('INSERT INTO service_masters(company_id,name,code,rate,unit,description)VALUES(?,?,?,?,?,?)',[companyId,name,code,rate,unit,description]);const[rows]=await db.query('SELECT * FROM service_masters WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/masters/:id',authenticate,async(req,res)=>{const{name,code,rate,unit,description}=req.body;await db.query('UPDATE service_masters SET name=?,code=?,rate=?,unit=?,description=? WHERE id=?',[name,code,rate,unit,description,req.params.id]);const[r]=await db.query('SELECT * FROM service_masters WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.delete('/masters/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM service_masters WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-router.get('/orders',authenticate,async(req,res)=>{const{companyId,status}=req.query;let sql='SELECT so.*,sm.name as service_name FROM service_orders so LEFT JOIN service_masters sm ON so.service_id=sm.id WHERE so.company_id=?';const p=[companyId];if(status){sql+=' AND so.status=?';p.push(status);}sql+=' ORDER BY so.created_at DESC';const[r]=await db.query(sql,p);res.json(r);});
-router.post('/orders',authenticate,async(req,res)=>{const{companyId,customerId,customerName,serviceId,description,priority,dueDate,assignedTo,estimatedCost}=req.body;const[r]=await db.query('INSERT INTO service_orders(company_id,customer_id,customer_name,service_id,description,priority,due_date,assigned_to,estimated_cost)VALUES(?,?,?,?,?,?,?,?,?)',[companyId,customerId,customerName,serviceId,description,priority||'medium',dueDate,assignedTo,estimatedCost]);const[rows]=await db.query('SELECT * FROM service_orders WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/orders/:id',authenticate,async(req,res)=>{const{status,assignedTo,actualCost,closedAt}=req.body;await db.query('UPDATE service_orders SET status=?,assigned_to=?,actual_cost=?,closed_at=? WHERE id=?',[status,assignedTo,actualCost,closedAt,req.params.id]);const[r]=await db.query('SELECT * FROM service_orders WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.get('/tickets',authenticate,async(req,res)=>{const{companyId,status}=req.query;let sql='SELECT * FROM service_tickets WHERE company_id=?';const p=[companyId];if(status){sql+=' AND status=?';p.push(status);}sql+=' ORDER BY created_at DESC';const[r]=await db.query(sql,p);res.json(r);});
-router.post('/tickets',authenticate,async(req,res)=>{const{companyId,orderId,title,description,status}=req.body;const[r]=await db.query('INSERT INTO service_tickets(company_id,order_id,title,description,status)VALUES(?,?,?,?,?)',[companyId,orderId,title,description,status||'open']);const[rows]=await db.query('SELECT * FROM service_tickets WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/tickets/:id',authenticate,async(req,res)=>{const{status,title,description}=req.body;await db.query('UPDATE service_tickets SET status=?,title=?,description=? WHERE id=?',[status,title,description,req.params.id]);const[r]=await db.query('SELECT * FROM service_tickets WHERE id=?',[req.params.id]);res.json(r[0]);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/masters', auth, async (req, res) => {
+  try{const {company_id}=req.query;res.json(await query('SELECT * FROM service_masters WHERE company_id=? ORDER BY name',[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/masters', auth, async (req, res) => {
+  try{
+    const {company_id,name,category,rate,gst_rate,hsn_code}=req.body;
+    const r=await query('INSERT INTO service_masters (company_id,name,category,rate,gst_rate,hsn_code) VALUES (?,?,?,?,?,?)',[company_id,name,category,rate||0,gst_rate||0,hsn_code]);
+    res.status(201).json({id:r.insertId});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.get('/orders', auth, async (req, res) => {
+  try{const {company_id}=req.query;res.json(await query('SELECT so.*,sm.name as service_name,c.name as customer_name FROM service_orders so LEFT JOIN service_masters sm ON so.service_id=sm.id LEFT JOIN customers c ON so.customer_id=c.id WHERE so.company_id=? ORDER BY so.date DESC',[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/orders', auth, async (req, res) => {
+  try{
+    const {company_id,service_id,customer_id,order_number,date,priority,estimated_amount,notes}=req.body;
+    const r=await query('INSERT INTO service_orders (company_id,service_id,customer_id,order_number,date,priority,estimated_amount,notes) VALUES (?,?,?,?,?,?,?,?)',[company_id,service_id,customer_id,order_number,date,priority||'medium',estimated_amount,notes]);
+    res.status(201).json({id:r.insertId});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.put('/orders/:id/status', auth, async (req, res) => {
+  try{await query('UPDATE service_orders SET status=? WHERE id=?',[req.body.status,req.params.id]);res.json({success:true});}catch(e){res.status(500).json({error:e.message});}
+});
+router.get('/tickets', auth, async (req, res) => {
+  try{const {company_id}=req.query;res.json(await query('SELECT * FROM service_tickets WHERE company_id=? ORDER BY created_at DESC',[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/tickets', auth, async (req, res) => {
+  try{
+    const {company_id,order_id,title,description,assigned_to}=req.body;
+    const r=await query('INSERT INTO service_tickets (company_id,order_id,title,description,assigned_to) VALUES (?,?,?,?,?)',[company_id,order_id,title,description,assigned_to]);
+    res.status(201).json({id:r.insertId});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.put('/tickets/:id/status', auth, async (req, res) => {
+  try{await query('UPDATE service_tickets SET status=? WHERE id=?',[req.body.status,req.params.id]);res.json({success:true});}catch(e){res.status(500).json({error:e.message});}
+});
+module.exports = router;

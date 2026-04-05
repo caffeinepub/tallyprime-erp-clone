@@ -1,5 +1,25 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/',authenticate,async(req,res)=>{const{companyId,bankAccountId,status}=req.query;let sql='SELECT ce.*,ba.account_name FROM cheque_entries ce LEFT JOIN bank_accounts ba ON ce.bank_account_id=ba.id WHERE ce.company_id=?';const p=[companyId];if(bankAccountId){sql+=' AND ce.bank_account_id=?';p.push(bankAccountId);}if(status){sql+=' AND ce.status=?';p.push(status);}sql+=' ORDER BY ce.cheque_date DESC';const[r]=await db.query(sql,p);res.json(r);});
-router.post('/',authenticate,async(req,res)=>{const{companyId,bankAccountId,chequeNumber,chequeDate,amount,payeeName,chequeType,remarks}=req.body;const[r]=await db.query('INSERT INTO cheque_entries(company_id,bank_account_id,cheque_number,cheque_date,amount,payee_name,cheque_type,remarks)VALUES(?,?,?,?,?,?,?,?)',[companyId,bankAccountId,chequeNumber,chequeDate,amount,payeeName,chequeType||'issued',remarks]);const[rows]=await db.query('SELECT * FROM cheque_entries WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/:id',authenticate,async(req,res)=>{await db.query('UPDATE cheque_entries SET status=?,remarks=? WHERE id=?',[req.body.status,req.body.remarks,req.params.id]);const[r]=await db.query('SELECT * FROM cheque_entries WHERE id=?',[req.params.id]);res.json(r[0]);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/', auth, async (req, res) => {
+  try { const { company_id } = req.query; res.json(await query('SELECT * FROM cheques WHERE company_id=? ORDER BY cheque_date DESC', [company_id])); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/', auth, async (req, res) => {
+  try {
+    const { company_id, bank_account_id, cheque_number, cheque_date, amount, payee_name, cheque_type, remarks } = req.body;
+    const r = await query('INSERT INTO cheques (company_id,bank_account_id,cheque_number,cheque_date,amount,payee_name,cheque_type,remarks) VALUES (?,?,?,?,?,?,?,?)',
+      [company_id, bank_account_id, cheque_number, cheque_date, amount, payee_name, cheque_type, remarks]);
+    res.status(201).json({ id: r.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/:id/status', auth, async (req, res) => {
+  try {
+    const { status, remarks } = req.body;
+    await query('UPDATE cheques SET status=?,remarks=? WHERE id=?', [status, remarks, req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+module.exports = router;

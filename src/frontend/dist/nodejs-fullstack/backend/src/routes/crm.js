@@ -1,8 +1,40 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/leads',authenticate,async(req,res)=>{const{companyId,status,source}=req.query;let sql='SELECT * FROM crm_leads WHERE company_id=?';const p=[companyId];if(status){sql+=' AND status=?';p.push(status);}if(source){sql+=' AND source=?';p.push(source);}sql+=' ORDER BY created_at DESC';const[r]=await db.query(sql,p);res.json(r);});
-router.post('/leads',authenticate,async(req,res)=>{const{companyId,name,email,phone,company,source,status,assignedTo,followUpDate,notes}=req.body;const[r]=await db.query('INSERT INTO crm_leads(company_id,name,email,phone,company,source,status,assigned_to,follow_up_date,notes)VALUES(?,?,?,?,?,?,?,?,?,?)',[companyId,name,email,phone,company,source,status||'new',assignedTo,followUpDate,notes]);const[rows]=await db.query('SELECT * FROM crm_leads WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/leads/:id',authenticate,async(req,res)=>{const{name,email,phone,company,source,status,assignedTo,followUpDate,notes}=req.body;await db.query('UPDATE crm_leads SET name=?,email=?,phone=?,company=?,source=?,status=?,assigned_to=?,follow_up_date=?,notes=? WHERE id=?',[name,email,phone,company,source,status,assignedTo,followUpDate,notes,req.params.id]);const[r]=await db.query('SELECT * FROM crm_leads WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.delete('/leads/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM crm_leads WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-router.post('/leads/:id/convert',authenticate,async(req,res)=>{const[lead]=await db.query('SELECT * FROM crm_leads WHERE id=?',[req.params.id]);if(!lead.length)return res.status(404).json({error:'Not found'});const l=lead[0];const[r]=await db.query('INSERT INTO customers(company_id,name,email,phone,gstin,address)VALUES(?,?,?,?,"","")',[l.company_id,l.name,l.email,l.phone]);await db.query('UPDATE crm_leads SET status="converted",converted_customer_id=? WHERE id=?',[r.insertId,req.params.id]);res.json({message:'Converted',customerId:r.insertId});});
-router.get('/follow-ups',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT *,DATEDIFF(follow_up_date,CURDATE()) as days_until FROM crm_leads WHERE company_id=? AND follow_up_date IS NOT NULL AND status!="converted" ORDER BY follow_up_date ASC',[companyId]);res.json(r);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/leads', auth, async (req, res) => {
+  try { const { company_id } = req.query; res.json(await query('SELECT * FROM crm_leads WHERE company_id=? ORDER BY created_at DESC', [company_id])); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/leads', auth, async (req, res) => {
+  try {
+    const { company_id, name, email, phone, source, status, follow_up_date, notes } = req.body;
+    const r = await query('INSERT INTO crm_leads (company_id,name,email,phone,source,status,follow_up_date,notes) VALUES (?,?,?,?,?,?,?,?)',
+      [company_id, name, email, phone, source || 'other', status || 'new', follow_up_date, notes]);
+    res.status(201).json({ id: r.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/leads/:id', auth, async (req, res) => {
+  try {
+    const { name, email, phone, source, status, follow_up_date, notes } = req.body;
+    await query('UPDATE crm_leads SET name=?,email=?,phone=?,source=?,status=?,follow_up_date=?,notes=? WHERE id=?',
+      [name, email, phone, source, status, follow_up_date, notes, req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.delete('/leads/:id', auth, async (req, res) => {
+  try { await query('DELETE FROM crm_leads WHERE id=?', [req.params.id]); res.json({ success: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/leads/:id/convert', auth, async (req, res) => {
+  try {
+    const lead = await query('SELECT * FROM crm_leads WHERE id=?', [req.params.id]);
+    if (!lead[0]) return res.status(404).json({ error: 'Lead not found' });
+    const l = lead[0];
+    const r = await query('INSERT INTO customers (company_id,name,email,phone) VALUES (?,?,?,?)', [l.company_id, l.name, l.email, l.phone]);
+    await query('UPDATE crm_leads SET status="won" WHERE id=?', [req.params.id]);
+    res.json({ customer_id: r.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+module.exports = router;

@@ -1,9 +1,29 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/comments',authenticate,async(req,res)=>{const{companyId,voucherId}=req.query;let sql='SELECT * FROM voucher_comments WHERE company_id=?';const p=[companyId];if(voucherId){sql+=' AND voucher_id=?';p.push(voucherId);}sql+=' ORDER BY created_at DESC';const[r]=await db.query(sql,p);res.json(r);});
-router.post('/comments',authenticate,async(req,res)=>{const{companyId,voucherId,comment}=req.body;const[r]=await db.query('INSERT INTO voucher_comments(company_id,voucher_id,comment,created_by)VALUES(?,?,?,?)',[companyId,voucherId,comment,req.user.username]);const[rows]=await db.query('SELECT * FROM voucher_comments WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.delete('/comments/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM voucher_comments WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-router.get('/tasks',authenticate,async(req,res)=>{const{companyId,assignedTo,status}=req.query;let sql='SELECT * FROM tasks WHERE company_id=?';const p=[companyId];if(assignedTo){sql+=' AND assigned_to=?';p.push(assignedTo);}if(status){sql+=' AND status=?';p.push(status);}sql+=' ORDER BY due_date ASC';const[r]=await db.query(sql,p);res.json(r);});
-router.post('/tasks',authenticate,async(req,res)=>{const{companyId,title,description,voucherId,assignedTo,dueDate,priority}=req.body;const[r]=await db.query('INSERT INTO tasks(company_id,title,description,voucher_id,assigned_to,due_date,priority,created_by)VALUES(?,?,?,?,?,?,?,?)',[companyId,title,description,voucherId,assignedTo,dueDate,priority||'medium',req.user.username]);const[rows]=await db.query('SELECT * FROM tasks WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/tasks/:id',authenticate,async(req,res)=>{const{status,title,description,assignedTo,dueDate}=req.body;await db.query('UPDATE tasks SET status=?,title=?,description=?,assigned_to=?,due_date=? WHERE id=?',[status,title,description,assignedTo,dueDate,req.params.id]);const[r]=await db.query('SELECT * FROM tasks WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.delete('/tasks/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM tasks WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/comments', auth, async (req, res) => {
+  try{const {company_id,voucher_id}=req.query;res.json(await query('SELECT * FROM voucher_comments WHERE company_id=? AND voucher_id=? ORDER BY created_at',[company_id,voucher_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/comments', auth, async (req, res) => {
+  try{
+    const {company_id,voucher_id,comment}=req.body;
+    const r=await query('INSERT INTO voucher_comments (company_id,voucher_id,username,comment) VALUES (?,?,?,?)',[company_id,voucher_id,req.user.username,comment]);
+    res.status(201).json({id:r.insertId});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.get('/tasks', auth, async (req, res) => {
+  try{const {company_id}=req.query;res.json(await query('SELECT * FROM tasks WHERE company_id=? ORDER BY due_date',[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/tasks', auth, async (req, res) => {
+  try{
+    const {company_id,voucher_id,title,assigned_to,due_date}=req.body;
+    const r=await query('INSERT INTO tasks (company_id,voucher_id,title,assigned_to,due_date) VALUES (?,?,?,?,?)',[company_id,voucher_id||null,title,assigned_to,due_date]);
+    res.status(201).json({id:r.insertId});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.put('/tasks/:id/status', auth, async (req, res) => {
+  try{await query('UPDATE tasks SET status=? WHERE id=?',[req.body.status,req.params.id]);res.json({success:true});}catch(e){res.status(500).json({error:e.message});}
+});
+module.exports = router;

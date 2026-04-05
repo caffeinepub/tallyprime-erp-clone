@@ -1,10 +1,40 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/eway-bills',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM eway_bills WHERE company_id=? ORDER BY generated_date DESC',[req.query.companyId]);res.json(r);});
-router.post('/eway-bills',authenticate,async(req,res)=>{const{companyId,voucherId,ewbNumber,generatedDate,validUpto,fromGstin,toGstin,vehicleNumber,transporter,totalValue,hsnCode}=req.body;const[r]=await db.query('INSERT INTO eway_bills(company_id,voucher_id,ewb_number,generated_date,valid_upto,from_gstin,to_gstin,vehicle_number,transporter,total_value,hsn_code)VALUES(?,?,?,?,?,?,?,?,?,?,?)',[companyId,voucherId,ewbNumber,generatedDate,validUpto,fromGstin,toGstin,vehicleNumber,transporter,totalValue,hsnCode]);const[rows]=await db.query('SELECT * FROM eway_bills WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/eway-bills/:id/cancel',authenticate,async(req,res)=>{await db.query('UPDATE eway_bills SET status="cancelled" WHERE id=?',[req.params.id]);res.json({message:'Cancelled'});});
-router.get('/einvoices',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM einvoices WHERE company_id=? ORDER BY created_at DESC',[req.query.companyId]);res.json(r);});
-router.post('/einvoices',authenticate,async(req,res)=>{const{companyId,voucherId,irn,ackNo,ackDate,qrCode,partyGstin,totalValue}=req.body;const[r]=await db.query('INSERT INTO einvoices(company_id,voucher_id,irn,ack_no,ack_date,qr_code,party_gstin,total_value)VALUES(?,?,?,?,?,?,?,?)',[companyId,voucherId,irn,ackNo,ackDate,qrCode,partyGstin,totalValue]);const[rows]=await db.query('SELECT * FROM einvoices WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/einvoices/:id/cancel',authenticate,async(req,res)=>{await db.query('UPDATE einvoices SET status="cancelled" WHERE id=?',[req.params.id]);res.json({message:'Cancelled'});});
-router.get('/gst-filing',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM gst_filing_history WHERE company_id=? ORDER BY filed_date DESC',[req.query.companyId]);res.json(r);});
-router.post('/gst-filing',authenticate,async(req,res)=>{const{companyId,returnType,period,filedDate,status,taxPayable,interestPenalty,totalPaid}=req.body;const[r]=await db.query('INSERT INTO gst_filing_history(company_id,return_type,period,filed_date,status,tax_payable,interest_penalty,total_paid)VALUES(?,?,?,?,?,?,?,?)',[companyId,returnType,period,filedDate,status||'filed',taxPayable,interestPenalty||0,totalPaid]);const[rows]=await db.query('SELECT * FROM gst_filing_history WHERE id=?',[r.insertId]);res.json(rows[0]);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/eway-bills', auth, async (req, res) => {
+  try{const {company_id}=req.query;res.json(await query('SELECT * FROM eway_bills WHERE company_id=? ORDER BY date DESC',[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/eway-bills', auth, async (req, res) => {
+  try{
+    const {company_id,voucher_id,bill_number,date,vehicle_number,from_place,to_place}=req.body;
+    const r=await query('INSERT INTO eway_bills (company_id,voucher_id,bill_number,date,vehicle_number,from_place,to_place) VALUES (?,?,?,?,?,?,?)',[company_id,voucher_id||null,bill_number||`EWB${Date.now()}`,date,vehicle_number,from_place,to_place]);
+    res.status(201).json({id:r.insertId});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.put('/eway-bills/:id/cancel', auth, async (req, res) => {
+  try{await query('UPDATE eway_bills SET status="cancelled" WHERE id=?',[req.params.id]);res.json({success:true});}catch(e){res.status(500).json({error:e.message});}
+});
+router.get('/einvoices', auth, async (req, res) => {
+  try{const {company_id}=req.query;res.json(await query('SELECT * FROM einvoices WHERE company_id=? ORDER BY generated_at DESC',[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/einvoices', auth, async (req, res) => {
+  try{
+    const {company_id,voucher_id}=req.body;
+    const irn=`IRN${Date.now()}${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+    const r=await query('INSERT INTO einvoices (company_id,voucher_id,irn) VALUES (?,?,?)',[company_id,voucher_id||null,irn]);
+    res.status(201).json({id:r.insertId,irn});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.get('/filing-history', auth, async (req, res) => {
+  try{const {company_id}=req.query;res.json(await query('SELECT * FROM gst_filing_history WHERE company_id=? ORDER BY filing_date DESC',[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/filing-history', auth, async (req, res) => {
+  try{
+    const {company_id,return_type,period,filing_date,status,arn}=req.body;
+    const r=await query('INSERT INTO gst_filing_history (company_id,return_type,period,filing_date,status,arn) VALUES (?,?,?,?,?,?)',[company_id,return_type,period,filing_date,status||'filed',arn]);
+    res.status(201).json({id:r.insertId});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+module.exports = router;

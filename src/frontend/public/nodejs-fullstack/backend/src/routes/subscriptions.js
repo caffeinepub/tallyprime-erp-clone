@@ -1,9 +1,29 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/templates',authenticate,async(req,res)=>{const[r]=await db.query('SELECT st.*,DATEDIFF(st.next_billing_date,CURDATE()) as days_until,c.name as customer_name FROM subscription_templates st LEFT JOIN customers c ON st.customer_id=c.id WHERE st.company_id=? ORDER BY st.id',[req.query.companyId]);res.json(r);});
-router.post('/templates',authenticate,async(req,res)=>{const{companyId,name,amount,frequency,customerId,description,nextBillingDate}=req.body;const[r]=await db.query('INSERT INTO subscription_templates(company_id,name,amount,frequency,customer_id,description,next_billing_date)VALUES(?,?,?,?,?,?,?)',[companyId,name,amount,frequency,customerId,description,nextBillingDate]);const[rows]=await db.query('SELECT * FROM subscription_templates WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/templates/:id',authenticate,async(req,res)=>{const{name,amount,frequency,nextBillingDate,isActive}=req.body;await db.query('UPDATE subscription_templates SET name=?,amount=?,frequency=?,next_billing_date=?,is_active=? WHERE id=?',[name,amount,frequency,nextBillingDate,isActive?1:0,req.params.id]);const[r]=await db.query('SELECT * FROM subscription_templates WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.delete('/templates/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM subscription_templates WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-router.get('/register',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT sr.*,st.name as template_name FROM subscription_register sr LEFT JOIN subscription_templates st ON sr.template_id=st.id WHERE sr.company_id=? ORDER BY sr.billing_date DESC',[companyId]);res.json(r);});
-router.post('/register',authenticate,async(req,res)=>{const{companyId,templateId,billingDate,amount,status}=req.body;const[r]=await db.query('INSERT INTO subscription_register(company_id,template_id,billing_date,amount,status)VALUES(?,?,?,?,?)',[companyId,templateId,billingDate,amount,status||'pending']);const[rows]=await db.query('SELECT * FROM subscription_register WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.get('/renewal-alerts',authenticate,async(req,res)=>{const[r]=await db.query('SELECT *,DATEDIFF(next_billing_date,CURDATE()) as days_until FROM subscription_templates WHERE company_id=? AND is_active=1 AND next_billing_date IS NOT NULL ORDER BY next_billing_date ASC',[req.query.companyId]);res.json(r);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/', auth, async (req, res) => {
+  try{const {company_id}=req.query;res.json(await query("SELECT st.*,c.name as customer_name FROM subscription_templates st LEFT JOIN customers c ON st.customer_id=c.id WHERE st.company_id=? ORDER BY st.next_due_date",[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/', auth, async (req, res) => {
+  try{
+    const {company_id,name,customer_id,amount,frequency,start_date,next_due_date}=req.body;
+    const r=await query('INSERT INTO subscription_templates (company_id,name,customer_id,amount,frequency,start_date,next_due_date) VALUES (?,?,?,?,?,?,?)',[company_id,name,customer_id,amount,frequency||'monthly',start_date,next_due_date]);
+    res.status(201).json({id:r.insertId});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.put('/:id', auth, async (req, res) => {
+  try{
+    const {name,amount,frequency,next_due_date,status}=req.body;
+    await query('UPDATE subscription_templates SET name=?,amount=?,frequency=?,next_due_date=?,status=? WHERE id=?',[name,amount,frequency,next_due_date,status,req.params.id]);
+    res.json({success:true});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.get('/alerts', auth, async (req, res) => {
+  try{
+    const {company_id}=req.query;
+    res.json(await query("SELECT st.*,c.name as customer_name,DATEDIFF(st.next_due_date,CURDATE()) as days_until_due FROM subscription_templates st LEFT JOIN customers c ON st.customer_id=c.id WHERE st.company_id=? AND st.status='active' AND DATEDIFF(st.next_due_date,CURDATE()) <= 30 ORDER BY st.next_due_date",[company_id]));
+  }catch(e){res.status(500).json({error:e.message});}
+});
+module.exports = router;

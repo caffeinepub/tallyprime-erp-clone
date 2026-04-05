@@ -1,11 +1,36 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/fields',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT * FROM custom_fields WHERE company_id=? ORDER BY entity,id',[companyId]);res.json(r);});
-router.post('/fields',authenticate,async(req,res)=>{const{companyId,entity,fieldName,fieldType,isRequired,defaultValue}=req.body;const[r]=await db.query('INSERT INTO custom_fields(company_id,entity,field_name,field_type,is_required,default_value)VALUES(?,?,?,?,?,?)',[companyId,entity,fieldName,fieldType||'text',isRequired?1:0,defaultValue]);const[rows]=await db.query('SELECT * FROM custom_fields WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.delete('/fields/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM custom_fields WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-router.get('/config/:companyId',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM customization_config WHERE company_id=?',[req.params.companyId]);res.json(r[0]||{config_json:'{}'});});
-router.put('/config/:companyId',authenticate,async(req,res)=>{const{configJson}=req.body;await db.query('INSERT INTO customization_config(company_id,config_json)VALUES(?,?)ON DUPLICATE KEY UPDATE config_json=VALUES(config_json)',[req.params.companyId,typeof configJson==='string'?configJson:JSON.stringify(configJson)]);res.json({message:'Saved'});});
-router.get('/workflows',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM workflows WHERE company_id=? ORDER BY id',[req.query.companyId]);res.json(r);});
-router.post('/workflows',authenticate,async(req,res)=>{const{companyId,name,trigger,steps,isEnabled}=req.body;const[r]=await db.query('INSERT INTO workflows(company_id,name,trigger_event,steps_json,is_enabled)VALUES(?,?,?,?,?)',[companyId,name,trigger,JSON.stringify(steps),isEnabled?1:0]);const[rows]=await db.query('SELECT * FROM workflows WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/workflows/:id',authenticate,async(req,res)=>{const{name,trigger,steps,isEnabled}=req.body;await db.query('UPDATE workflows SET name=?,trigger_event=?,steps_json=?,is_enabled=? WHERE id=?',[name,trigger,JSON.stringify(steps),isEnabled?1:0,req.params.id]);const[r]=await db.query('SELECT * FROM workflows WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.delete('/workflows/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM workflows WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/custom-fields', auth, async (req, res) => {
+  try{const {company_id}=req.query;res.json(await query('SELECT * FROM custom_fields WHERE company_id=? ORDER BY entity_type,field_name',[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/custom-fields', auth, async (req, res) => {
+  try{
+    const {company_id,entity_type,field_name,field_type,options,is_required}=req.body;
+    const r=await query('INSERT INTO custom_fields (company_id,entity_type,field_name,field_type,options,is_required) VALUES (?,?,?,?,?,?)',[company_id,entity_type,field_name,field_type||'text',JSON.stringify(options||[]),is_required?1:0]);
+    res.status(201).json({id:r.insertId});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.delete('/custom-fields/:id', auth, async (req, res) => {
+  try{await query('DELETE FROM custom_fields WHERE id=?',[req.params.id]);res.json({success:true});}catch(e){res.status(500).json({error:e.message});}
+});
+router.get('/workflows', auth, async (req, res) => {
+  try{const {company_id}=req.query;res.json(await query('SELECT * FROM workflows WHERE company_id=? ORDER BY name',[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/workflows', auth, async (req, res) => {
+  try{
+    const {company_id,name,trigger_event,steps}=req.body;
+    const r=await query('INSERT INTO workflows (company_id,name,trigger_event,steps) VALUES (?,?,?,?)',[company_id,name,trigger_event,JSON.stringify(steps||[])]);
+    res.status(201).json({id:r.insertId});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.put('/workflows/:id', auth, async (req, res) => {
+  try{
+    const {name,trigger_event,steps,is_active}=req.body;
+    await query('UPDATE workflows SET name=?,trigger_event=?,steps=?,is_active=? WHERE id=?',[name,trigger_event,JSON.stringify(steps),is_active?1:0,req.params.id]);
+    res.json({success:true});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+module.exports = router;

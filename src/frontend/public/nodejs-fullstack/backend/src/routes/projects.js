@@ -1,11 +1,33 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT p.*,c.name as customer_name FROM projects p LEFT JOIN customers c ON p.customer_id=c.id WHERE p.company_id=? ORDER BY p.id',[companyId]);res.json(r);});
-router.post('/',authenticate,async(req,res)=>{const{companyId,name,code,startDate,endDate,budget,customerId,status,description}=req.body;const[r]=await db.query('INSERT INTO projects(company_id,name,code,start_date,end_date,budget,customer_id,status,description)VALUES(?,?,?,?,?,?,?,?,?)',[companyId,name,code,startDate,endDate,budget,customerId,status||'active',description]);const[rows]=await db.query('SELECT * FROM projects WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/:id',authenticate,async(req,res)=>{const{name,budget,status,endDate,description}=req.body;await db.query('UPDATE projects SET name=?,budget=?,status=?,end_date=?,description=? WHERE id=?',[name,budget,status,endDate,description,req.params.id]);const[r]=await db.query('SELECT * FROM projects WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.delete('/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM projects WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-router.get('/:id/costs',authenticate,async(req,res)=>{const[r]=await db.query('SELECT pc.*,l.name as ledger_name FROM project_costs pc LEFT JOIN ledgers l ON pc.ledger_id=l.id WHERE pc.project_id=? ORDER BY pc.date',[req.params.id]);res.json(r);});
-router.post('/:id/costs',authenticate,async(req,res)=>{const{ledgerId,amount,date,narration,costType}=req.body;const[r]=await db.query('INSERT INTO project_costs(project_id,ledger_id,amount,date,narration,cost_type)VALUES(?,?,?,?,?,?)',[req.params.id,ledgerId,amount,date,narration,costType||'direct']);const[rows]=await db.query('SELECT * FROM project_costs WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.get('/:id/revenues',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM project_revenues WHERE project_id=? ORDER BY date',[req.params.id]);res.json(r);});
-router.post('/:id/revenues',authenticate,async(req,res)=>{const{amount,date,narration}=req.body;const[r]=await db.query('INSERT INTO project_revenues(project_id,amount,date,narration)VALUES(?,?,?,?)',[req.params.id,amount,date,narration]);const[rows]=await db.query('SELECT * FROM project_revenues WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.get('/:id/pl',authenticate,async(req,res)=>{const[p]=await db.query('SELECT * FROM projects WHERE id=?',[req.params.id]);if(!p.length)return res.status(404).json({error:'Not found'});const[[{tc}]]=await db.query('SELECT COALESCE(SUM(amount),0) as tc FROM project_costs WHERE project_id=?',[req.params.id]);const[[{tr}]]=await db.query('SELECT COALESCE(SUM(amount),0) as tr FROM project_revenues WHERE project_id=?',[req.params.id]);res.json({project:p[0],totalCost:+tc,totalRevenue:+tr,grossProfit:+tr-+tc,budgetVariance:+p[0].budget-+tc,margin:tr>0?((+tr-+tc)/+tr*100).toFixed(2):0});});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/', auth, async (req, res) => {
+  try{const {company_id}=req.query;res.json(await query('SELECT p.*,c.name as customer_name FROM projects p LEFT JOIN customers c ON p.customer_id=c.id WHERE p.company_id=? ORDER BY p.name',[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/', auth, async (req, res) => {
+  try{
+    const {company_id,name,customer_id,start_date,end_date,budgeted_cost}=req.body;
+    const r=await query('INSERT INTO projects (company_id,name,customer_id,start_date,end_date,budgeted_cost) VALUES (?,?,?,?,?,?)',[company_id,name,customer_id||null,start_date,end_date,budgeted_cost||0]);
+    res.status(201).json({id:r.insertId});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.put('/:id', auth, async (req, res) => {
+  try{
+    const {name,customer_id,start_date,end_date,budgeted_cost,status}=req.body;
+    await query('UPDATE projects SET name=?,customer_id=?,start_date=?,end_date=?,budgeted_cost=?,status=? WHERE id=?',[name,customer_id||null,start_date,end_date,budgeted_cost,status,req.params.id]);
+    res.json({success:true});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.get('/:id/costs', auth, async (req, res) => {
+  try{res.json(await query('SELECT pc.*,l.name as ledger_name FROM project_costs pc LEFT JOIN ledgers l ON pc.ledger_id=l.id WHERE pc.project_id=?',[req.params.id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/:id/costs', auth, async (req, res) => {
+  try{
+    const {company_id,ledger_id,amount,date,narration,cost_type}=req.body;
+    const r=await query('INSERT INTO project_costs (project_id,company_id,ledger_id,amount,date,narration,cost_type) VALUES (?,?,?,?,?,?,?)',[req.params.id,company_id,ledger_id,amount,date,narration,cost_type||'expense']);
+    res.status(201).json({id:r.insertId});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+module.exports = router;

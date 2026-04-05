@@ -1,7 +1,30 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT b.*,l.name as ledger_name FROM budgets b LEFT JOIN ledgers l ON b.ledger_id=l.id WHERE b.company_id=? ORDER BY b.id',[companyId]);res.json(r);});
-router.post('/',authenticate,async(req,res)=>{const{companyId,name,period,startDate,endDate,ledgerId,amount,type}=req.body;const[r]=await db.query('INSERT INTO budgets(company_id,name,period,start_date,end_date,ledger_id,amount,type)VALUES(?,?,?,?,?,?,?,?)',[companyId,name,period,startDate,endDate,ledgerId,amount,type||'ledger']);const[rows]=await db.query('SELECT * FROM budgets WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/:id',authenticate,async(req,res)=>{const{name,period,startDate,endDate,amount}=req.body;await db.query('UPDATE budgets SET name=?,period=?,start_date=?,end_date=?,amount=? WHERE id=?',[name,period,startDate,endDate,amount,req.params.id]);const[r]=await db.query('SELECT * FROM budgets WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.delete('/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM budgets WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-router.get('/vs-actual/:companyId',authenticate,async(req,res)=>{const{fromDate,toDate}=req.query;const[budgets]=await db.query('SELECT b.*,l.name as ledger_name FROM budgets b LEFT JOIN ledgers l ON b.ledger_id=l.id WHERE b.company_id=?',[req.params.companyId]);const result=await Promise.all(budgets.map(async b=>{if(!b.ledger_id)return{...b,actual:0,variance:+b.amount};let sql='SELECT COALESCE(SUM(ve.amount),0) as actual FROM voucher_entries ve JOIN vouchers v ON ve.voucher_id=v.id WHERE v.company_id=? AND ve.ledger_id=?';const p=[req.params.companyId,b.ledger_id];if(fromDate){sql+=' AND v.date>=?';p.push(fromDate);}if(toDate){sql+=' AND v.date<=?';p.push(toDate);}const[[{actual}]]=await db.query(sql,p);return{...b,actual:+actual,variance:+b.amount-+actual};}));res.json(result);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/', auth, async (req, res) => {
+  try { const { company_id } = req.query; res.json(await query('SELECT b.*,l.name as ledger_name FROM budgets b LEFT JOIN ledgers l ON b.ledger_id=l.id WHERE b.company_id=? ORDER BY b.name', [company_id])); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/', auth, async (req, res) => {
+  try {
+    const { company_id, name, ledger_id, period_from, period_to, budgeted_amount } = req.body;
+    const r = await query('INSERT INTO budgets (company_id,name,ledger_id,period_from,period_to,budgeted_amount) VALUES (?,?,?,?,?,?)',
+      [company_id, name, ledger_id, period_from, period_to, budgeted_amount]);
+    res.status(201).json({ id: r.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/:id', auth, async (req, res) => {
+  try {
+    const { name, ledger_id, period_from, period_to, budgeted_amount, actual_amount } = req.body;
+    await query('UPDATE budgets SET name=?,ledger_id=?,period_from=?,period_to=?,budgeted_amount=?,actual_amount=? WHERE id=?',
+      [name, ledger_id, period_from, period_to, budgeted_amount, actual_amount || 0, req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.delete('/:id', auth, async (req, res) => {
+  try { await query('DELETE FROM budgets WHERE id=?', [req.params.id]); res.json({ success: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+module.exports = router;

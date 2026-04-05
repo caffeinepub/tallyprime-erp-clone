@@ -1,6 +1,22 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/',authenticate,async(req,res)=>{const{companyId,status}=req.query;let sql='SELECT * FROM maker_checker WHERE company_id=?';const p=[companyId];if(status){sql+=' AND status=?';p.push(status);}sql+=' ORDER BY created_at DESC';const[r]=await db.query(sql,p);res.json(r);});
-router.post('/',authenticate,async(req,res)=>{const{companyId,entityType,entityId,action,payload}=req.body;const[r]=await db.query('INSERT INTO maker_checker(company_id,entity_type,entity_id,action,payload,submitted_by)VALUES(?,?,?,?,?,?)',[companyId,entityType,entityId,action,JSON.stringify(payload),req.user.username]);const[rows]=await db.query('SELECT * FROM maker_checker WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/:id/approve',authenticate,async(req,res)=>{await db.query('UPDATE maker_checker SET status="approved",approved_by=?,remarks=?,actioned_at=NOW() WHERE id=?',[req.user.username,req.body.remarks,req.params.id]);const[r]=await db.query('SELECT * FROM maker_checker WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.put('/:id/reject',authenticate,async(req,res)=>{await db.query('UPDATE maker_checker SET status="rejected",approved_by=?,remarks=?,actioned_at=NOW() WHERE id=?',[req.user.username,req.body.remarks,req.params.id]);const[r]=await db.query('SELECT * FROM maker_checker WHERE id=?',[req.params.id]);res.json(r[0]);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/', auth, async (req, res) => {
+  try{const {company_id}=req.query;res.json(await query('SELECT * FROM maker_checker WHERE company_id=? ORDER BY submitted_at DESC',[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/', auth, async (req, res) => {
+  try{
+    const {company_id,entity_type,entity_id,action_type,payload}=req.body;
+    const r=await query('INSERT INTO maker_checker (company_id,entity_type,entity_id,action_type,payload,maker) VALUES (?,?,?,?,?,?)',[company_id,entity_type,entity_id||null,action_type,JSON.stringify(payload||{}),req.user.username]);
+    res.status(201).json({id:r.insertId});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.put('/:id/approve', auth, async (req, res) => {
+  try{await query('UPDATE maker_checker SET status="approved",checker=?,remarks=?,reviewed_at=NOW() WHERE id=?',[req.user.username,req.body.remarks,req.params.id]);res.json({success:true});}catch(e){res.status(500).json({error:e.message});}
+});
+router.put('/:id/reject', auth, async (req, res) => {
+  try{await query('UPDATE maker_checker SET status="rejected",checker=?,remarks=?,reviewed_at=NOW() WHERE id=?',[req.user.username,req.body.remarks,req.params.id]);res.json({success:true});}catch(e){res.status(500).json({error:e.message});}
+});
+module.exports = router;

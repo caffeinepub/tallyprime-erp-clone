@@ -1,3 +1,17 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate,requireAdmin}=require('../middleware/auth');
-router.get('/',authenticate,requireAdmin,async(req,res)=>{const{entity,username,fromDate,toDate}=req.query;let sql='SELECT * FROM audit_log WHERE 1=1';const p=[];if(entity){sql+=' AND entity=?';p.push(entity);}if(username){sql+=' AND username=?';p.push(username);}if(fromDate){sql+=' AND created_at>=?';p.push(fromDate);}if(toDate){sql+=' AND created_at<=?';p.push(toDate);}sql+=' ORDER BY created_at DESC LIMIT 500';const[r]=await db.query(sql,p);res.json(r);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/', auth, async (req, res) => {
+  try{
+    const {company_id,limit,action,entity_type}=req.query;
+    let sql='SELECT * FROM audit_log WHERE 1=1';const params=[];
+    if(company_id){sql+=' AND company_id=?';params.push(company_id);}
+    if(action){sql+=' AND action=?';params.push(action);}
+    if(entity_type){sql+=' AND entity_type=?';params.push(entity_type);}
+    sql+=` ORDER BY timestamp DESC LIMIT ${parseInt(limit)||500}`;
+    res.json(await query(sql,params));
+  }catch(e){res.status(500).json({error:e.message});}
+});
+module.exports = router;

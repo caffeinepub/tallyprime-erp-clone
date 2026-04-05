@@ -1,10 +1,58 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/attendance',authenticate,async(req,res)=>{const{companyId,month,year,employeeId}=req.query;let sql='SELECT a.*,e.name as employee_name FROM attendance a LEFT JOIN employees e ON a.employee_id=e.id WHERE a.company_id=?';const p=[companyId];if(month){sql+=' AND a.month=?';p.push(month);}if(year){sql+=' AND a.year=?';p.push(year);}if(employeeId){sql+=' AND a.employee_id=?';p.push(employeeId);}sql+=' ORDER BY a.employee_id,a.day';const[r]=await db.query(sql,p);res.json(r);});
-router.post('/attendance',authenticate,async(req,res)=>{const{companyId,employeeId,month,year,day,status,inTime,outTime}=req.body;await db.query('INSERT INTO attendance(company_id,employee_id,month,year,day,status,in_time,out_time)VALUES(?,?,?,?,?,?,?,?)ON DUPLICATE KEY UPDATE status=VALUES(status),in_time=VALUES(in_time),out_time=VALUES(out_time)',[companyId,employeeId,month,year,day,status,inTime,outTime]);res.json({message:'Saved'});});
-router.post('/attendance/bulk',authenticate,async(req,res)=>{for(const r of(req.body.records||[]))await db.query('INSERT INTO attendance(company_id,employee_id,month,year,day,status)VALUES(?,?,?,?,?,?)ON DUPLICATE KEY UPDATE status=VALUES(status)',[r.companyId,r.employeeId,r.month,r.year,r.day,r.status]);res.json({message:'Bulk saved'});});
-router.get('/leave-types',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM leave_types WHERE company_id=?',[req.query.companyId]);res.json(r);});
-router.post('/leave-types',authenticate,async(req,res)=>{const{companyId,name,daysAllowed,isPaid}=req.body;const[r]=await db.query('INSERT INTO leave_types(company_id,name,days_allowed,is_paid)VALUES(?,?,?,?)',[companyId,name,daysAllowed,isPaid?1:0]);const[rows]=await db.query('SELECT * FROM leave_types WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.get('/leaves',authenticate,async(req,res)=>{const{companyId,employeeId,status}=req.query;let sql='SELECT l.*,e.name as employee_name FROM leaves l LEFT JOIN employees e ON l.employee_id=e.id WHERE l.company_id=?';const p=[companyId];if(employeeId){sql+=' AND l.employee_id=?';p.push(employeeId);}if(status){sql+=' AND l.status=?';p.push(status);}sql+=' ORDER BY l.created_at DESC';const[r]=await db.query(sql,p);res.json(r);});
-router.post('/leaves',authenticate,async(req,res)=>{const{companyId,employeeId,leaveType,fromDate,toDate,days,reason}=req.body;const[r]=await db.query('INSERT INTO leaves(company_id,employee_id,leave_type,from_date,to_date,days,reason)VALUES(?,?,?,?,?,?,?)',[companyId,employeeId,leaveType,fromDate,toDate,days,reason]);const[rows]=await db.query('SELECT * FROM leaves WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/leaves/:id',authenticate,async(req,res)=>{const{status,remarks}=req.body;await db.query('UPDATE leaves SET status=?,remarks=?,approved_by=? WHERE id=?',[status,remarks,req.user.username,req.params.id]);const[r]=await db.query('SELECT * FROM leaves WHERE id=?',[req.params.id]);res.json(r[0]);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/attendance', auth, async (req, res) => {
+  try {
+    const { company_id, year, month } = req.query;
+    const rows = await query('SELECT * FROM attendance WHERE company_id=? AND YEAR(att_date)=? AND MONTH(att_date)=?', [company_id, year, month]);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/attendance', auth, async (req, res) => {
+  try {
+    const { company_id, employee_id, att_date, status } = req.body;
+    await query('INSERT INTO attendance (company_id,employee_id,att_date,status) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE status=?',
+      [company_id, employee_id, att_date, status, status]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/leave-types', auth, async (req, res) => {
+  try {
+    const { company_id } = req.query;
+    res.json(await query('SELECT * FROM leave_types WHERE company_id=?', [company_id]));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/leave-types', auth, async (req, res) => {
+  try {
+    const { company_id, name, days_allowed } = req.body;
+    const r = await query('INSERT INTO leave_types (company_id,name,days_allowed) VALUES (?,?,?)', [company_id, name, days_allowed]);
+    res.status(201).json({ id: r.insertId, name });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/leaves', auth, async (req, res) => {
+  try {
+    const { company_id } = req.query;
+    res.json(await query('SELECT l.*,e.name as employee_name,lt.name as leave_type_name FROM leaves l LEFT JOIN employees e ON l.employee_id=e.id LEFT JOIN leave_types lt ON l.leave_type_id=lt.id WHERE l.company_id=? ORDER BY l.applied_at DESC', [company_id]));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/leaves', auth, async (req, res) => {
+  try {
+    const { company_id, employee_id, leave_type_id, from_date, to_date, days, reason } = req.body;
+    const r = await query('INSERT INTO leaves (company_id,employee_id,leave_type_id,from_date,to_date,days,reason) VALUES (?,?,?,?,?,?,?)',
+      [company_id, employee_id, leave_type_id, from_date, to_date, days, reason]);
+    res.status(201).json({ id: r.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/leaves/:id/status', auth, async (req, res) => {
+  try {
+    const { status } = req.body;
+    await query('UPDATE leaves SET status=? WHERE id=?', [status, req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+module.exports = router;

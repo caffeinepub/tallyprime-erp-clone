@@ -1,7 +1,75 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate,requireAccountant,auditLog}=require('../middleware/auth');
-router.get('/',authenticate,async(req,res)=>{const{companyId,voucherType,fromDate,toDate}=req.query;let sql='SELECT * FROM vouchers WHERE 1=1';const p=[];if(companyId){sql+=' AND company_id=?';p.push(companyId);}if(voucherType){sql+=' AND voucher_type=?';p.push(voucherType);}if(fromDate){sql+=' AND date>=?';p.push(fromDate);}if(toDate){sql+=' AND date<=?';p.push(toDate);}sql+=' ORDER BY date DESC,id DESC';const[rows]=await db.query(sql,p);const result=await Promise.all(rows.map(async v=>{const[e]=await db.query('SELECT ve.*,l.name as ledger_name FROM voucher_entries ve LEFT JOIN ledgers l ON ve.ledger_id=l.id WHERE ve.voucher_id=?',[v.id]);return{...v,entries:e};}));res.json(result);});
-router.get('/:id',authenticate,async(req,res)=>{const[v]=await db.query('SELECT * FROM vouchers WHERE id=?',[req.params.id]);if(!v.length)return res.status(404).json({error:'Not found'});const[e]=await db.query('SELECT ve.*,l.name as ledger_name FROM voucher_entries ve LEFT JOIN ledgers l ON ve.ledger_id=l.id WHERE ve.voucher_id=?',[req.params.id]);res.json({...v[0],entries:e});});
-router.post('/',authenticate,requireAccountant,async(req,res)=>{const{companyId,voucherType,voucherNumber,date,narration,entries,refNumber,partyLedgerId}=req.body;const conn=await db.getConnection();try{await conn.beginTransaction();const[r]=await conn.query('INSERT INTO vouchers(company_id,voucher_type,voucher_number,date,narration,ref_number,party_ledger_id,created_by)VALUES(?,?,?,?,?,?,?,?)',[companyId,voucherType,voucherNumber,date,narration,refNumber,partyLedgerId,req.user.username]);const vId=r.insertId;for(const e of(entries||[]))await conn.query('INSERT INTO voucher_entries(voucher_id,ledger_id,amount,entry_type,cost_centre_id,narration)VALUES(?,?,?,?,?,?)',[vId,e.ledgerId,e.amount,e.entryType,e.costCentreId||null,e.narration||null]);await conn.commit();await auditLog(req,'CREATE','voucher',vId,{voucherType,voucherNumber});res.json({voucherId:vId});}catch(e){await conn.rollback();res.status(500).json({error:e.message});}finally{conn.release();}});
-router.put('/:id',authenticate,requireAccountant,async(req,res)=>{const{narration,entries,refNumber}=req.body;const conn=await db.getConnection();try{await conn.beginTransaction();await conn.query('UPDATE vouchers SET narration=?,ref_number=? WHERE id=?',[narration,refNumber,req.params.id]);await conn.query('DELETE FROM voucher_entries WHERE voucher_id=?',[req.params.id]);for(const e of(entries||[]))await conn.query('INSERT INTO voucher_entries(voucher_id,ledger_id,amount,entry_type,cost_centre_id,narration)VALUES(?,?,?,?,?,?)',[req.params.id,e.ledgerId,e.amount,e.entryType,e.costCentreId||null,e.narration||null]);await conn.commit();res.json({message:'Updated'});}catch(e){await conn.rollback();res.status(500).json({error:e.message});}finally{conn.release();}});
-router.delete('/:id',authenticate,requireAccountant,async(req,res)=>{await db.query('DELETE FROM vouchers WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query, invalidateCache } = require('../database/db');
+const { auth } = require('../middleware/auth');
+const { cacheGet, cacheSet } = require('../database/redis');
+const { logAudit } = require('../middleware/audit');
+
+// GET vouchers by company
+router.get('/', auth, async (req, res) => {
+  try {
+    const { company_id, type, from_date, to_date } = req.query;
+    if (!company_id) return res.status(400).json({ error: 'company_id required' });
+    let sql = 'SELECT v.*, GROUP_CONCAT(JSON_OBJECT("ledger_id",ve.ledger_id,"entry_type",ve.entry_type,"amount",ve.amount)) as entries_raw FROM vouchers v LEFT JOIN voucher_entries ve ON v.id=ve.voucher_id WHERE v.company_id=?';
+    const params = [company_id];
+    if (type) { sql += ' AND v.voucher_type=?'; params.push(type); }
+    if (from_date) { sql += ' AND v.date >= ?'; params.push(from_date); }
+    if (to_date) { sql += ' AND v.date <= ?'; params.push(to_date); }
+    sql += ' GROUP BY v.id ORDER BY v.date DESC, v.id DESC';
+    const rows = await query(sql, params);
+    const result = rows.map(r => ({ ...r, entries: r.entries_raw ? JSON.parse('['+r.entries_raw+']').filter(Boolean) : [] }));
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET day book
+router.get('/day-book', auth, async (req, res) => {
+  try {
+    const { company_id, date } = req.query;
+    const cKey = `daybook:${company_id}:${date}`;
+    const c = await cacheGet(cKey);
+    if (c) return res.json(c);
+    const rows = await query(
+      'SELECT v.*, GROUP_CONCAT(JSON_OBJECT("ledger_id",ve.ledger_id,"entry_type",ve.entry_type,"amount",ve.amount)) as entries_raw FROM vouchers v LEFT JOIN voucher_entries ve ON v.id=ve.voucher_id WHERE v.company_id=? AND v.date=? GROUP BY v.id ORDER BY v.id',
+      [company_id, date]
+    );
+    const result = rows.map(r => ({ ...r, entries: r.entries_raw ? JSON.parse('['+r.entries_raw+']').filter(Boolean) : [] }));
+    await cacheSet(cKey, result, 60);
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST create voucher
+router.post('/', auth, async (req, res) => {
+  try {
+    const { company_id, voucher_type, voucher_number, date, narration, entries } = req.body;
+    const r = await query(
+      'INSERT INTO vouchers (company_id, voucher_type, voucher_number, date, narration) VALUES (?,?,?,?,?)',
+      [company_id, voucher_type, voucher_number, date, narration]
+    );
+    const vid = r.insertId;
+    if (entries && entries.length > 0) {
+      for (const e of entries) {
+        await query('INSERT INTO voucher_entries (voucher_id, ledger_id, entry_type, amount) VALUES (?,?,?,?)',
+          [vid, e.ledger_id, e.entry_type, e.amount]);
+      }
+    }
+    await invalidateCache(`daybook:${company_id}:*`);
+    await invalidateCache(`trial_balance:${company_id}`);
+    await logAudit(company_id, req.user.username, 'CREATE', 'voucher', vid, null, { voucher_type, date }, req.ip);
+    res.status(201).json({ id: vid, company_id, voucher_type, voucher_number, date, narration, entries });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const { company_id } = req.query;
+    await query('DELETE FROM voucher_entries WHERE voucher_id=?', [req.params.id]);
+    await query('DELETE FROM vouchers WHERE id=?', [req.params.id]);
+    if (company_id) { await invalidateCache(`daybook:${company_id}:*`); await invalidateCache(`trial_balance:${company_id}`); }
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+module.exports = router;

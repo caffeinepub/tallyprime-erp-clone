@@ -1,17 +1,38 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT * FROM fixed_assets WHERE company_id=? ORDER BY id',[companyId]);res.json(r);});
-router.post('/',authenticate,async(req,res)=>{const{companyId,name,category,purchaseDate,cost,salvageValue,usefulLifeYears,depreciationMethod,location,serialNumber}=req.body;const[r]=await db.query('INSERT INTO fixed_assets(company_id,name,category,purchase_date,cost,salvage_value,useful_life_years,depreciation_method,location,serial_number)VALUES(?,?,?,?,?,?,?,?,?,?)',[companyId,name,category,purchaseDate,cost,salvageValue||0,usefulLifeYears||5,depreciationMethod||'SLM',location,serialNumber]);const[rows]=await db.query('SELECT * FROM fixed_assets WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/:id',authenticate,async(req,res)=>{const{name,category,purchaseDate,cost,salvageValue,usefulLifeYears,depreciationMethod,location,serialNumber,accumulatedDepreciation,isDisposed,disposalDate,disposalValue}=req.body;await db.query('UPDATE fixed_assets SET name=?,category=?,purchase_date=?,cost=?,salvage_value=?,useful_life_years=?,depreciation_method=?,location=?,serial_number=?,accumulated_depreciation=?,is_disposed=?,disposal_date=?,disposal_value=? WHERE id=?',[name,category,purchaseDate,cost,salvageValue,usefulLifeYears,depreciationMethod,location,serialNumber,accumulatedDepreciation,isDisposed?1:0,disposalDate,disposalValue,req.params.id]);const[r]=await db.query('SELECT * FROM fixed_assets WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.delete('/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM fixed_assets WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-router.post('/:id/depreciation',authenticate,async(req,res)=>{const{amount,date,narration}=req.body;await db.query('INSERT INTO depreciation_entries(asset_id,amount,date,narration)VALUES(?,?,?,?)',[req.params.id,amount,date,narration]);await db.query('UPDATE fixed_assets SET accumulated_depreciation=accumulated_depreciation+? WHERE id=?',[amount,req.params.id]);res.json({message:'Recorded'});});
-router.get('/:id/depreciation',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM depreciation_entries WHERE asset_id=? ORDER BY date',[req.params.id]);res.json(r);});
-router.get('/reports/register/:companyId',authenticate,async(req,res)=>{const[assets]=await db.query('SELECT * FROM fixed_assets WHERE company_id=? ORDER BY category,name',[req.params.companyId]);const result=await Promise.all(assets.map(async a=>{const[[{td}]]=await db.query('SELECT COALESCE(SUM(amount),0) as td FROM depreciation_entries WHERE asset_id=?',[a.id]);return{...a,totalDepreciation:+td,writtenDownValue:+a.cost-+td};}));res.json(result);});
-router.get('/maintenance/schedules',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT ms.*,fa.name as asset_name FROM maintenance_schedules ms LEFT JOIN fixed_assets fa ON ms.asset_id=fa.id WHERE ms.company_id=? ORDER BY ms.next_due',[companyId]);res.json(r);});
-router.post('/maintenance/schedules',authenticate,async(req,res)=>{const{companyId,assetId,title,type,frequency,lastDone,nextDue,assignedTo,priority}=req.body;const[r]=await db.query('INSERT INTO maintenance_schedules(company_id,asset_id,title,type,frequency,last_done,next_due,assigned_to,priority)VALUES(?,?,?,?,?,?,?,?,?)',[companyId,assetId,title,type||'preventive',frequency,lastDone,nextDue,assignedTo,priority||'medium']);const[rows]=await db.query('SELECT * FROM maintenance_schedules WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/maintenance/schedules/:id',authenticate,async(req,res)=>{const{status,lastDone,nextDue}=req.body;await db.query('UPDATE maintenance_schedules SET status=?,last_done=?,next_due=? WHERE id=?',[status,lastDone,nextDue,req.params.id]);const[r]=await db.query('SELECT * FROM maintenance_schedules WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.get('/maintenance/logs',authenticate,async(req,res)=>{const{companyId,assetId}=req.query;let sql='SELECT ml.*,fa.name as asset_name FROM maintenance_logs ml LEFT JOIN fixed_assets fa ON ml.asset_id=fa.id WHERE ml.company_id=?';const p=[companyId];if(assetId){sql+=' AND ml.asset_id=?';p.push(assetId);}sql+=' ORDER BY ml.date DESC';const[r]=await db.query(sql,p);res.json(r);});
-router.post('/maintenance/logs',authenticate,async(req,res)=>{const{companyId,assetId,scheduleId,date,description,cost,performedBy}=req.body;const[r]=await db.query('INSERT INTO maintenance_logs(company_id,asset_id,schedule_id,date,description,cost,performed_by)VALUES(?,?,?,?,?,?,?)',[companyId,assetId,scheduleId,date,description,cost,performedBy]);const[rows]=await db.query('SELECT * FROM maintenance_logs WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.get('/amc',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT at.*,fa.name as asset_name,DATEDIFF(at.expiry_date,CURDATE()) as days_remaining FROM amc_tracker at LEFT JOIN fixed_assets fa ON at.asset_id=fa.id WHERE at.company_id=? ORDER BY at.expiry_date',[companyId]);res.json(r);});
-router.post('/amc',authenticate,async(req,res)=>{const{companyId,assetId,vendor,type,startDate,expiryDate,amount,notes}=req.body;const[r]=await db.query('INSERT INTO amc_tracker(company_id,asset_id,vendor,type,start_date,expiry_date,amount,notes)VALUES(?,?,?,?,?,?,?,?)',[companyId,assetId,vendor,type||'AMC',startDate,expiryDate,amount,notes]);const[rows]=await db.query('SELECT * FROM amc_tracker WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.delete('/amc/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM amc_tracker WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/', auth, async (req, res) => {
+  try { const { company_id } = req.query; res.json(await query('SELECT * FROM fixed_assets WHERE company_id=? ORDER BY name', [company_id])); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/', auth, async (req, res) => {
+  try {
+    const { company_id, name, category, purchase_date, cost, salvage_value, useful_life_years, depreciation_method } = req.body;
+    const r = await query('INSERT INTO fixed_assets (company_id,name,category,purchase_date,cost,salvage_value,useful_life_years,depreciation_method) VALUES (?,?,?,?,?,?,?,?)',
+      [company_id, name, category, purchase_date, cost, salvage_value || 0, useful_life_years, depreciation_method || 'SLM']);
+    res.status(201).json({ id: r.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/:id', auth, async (req, res) => {
+  try {
+    const { name, category, purchase_date, cost, salvage_value, useful_life_years, depreciation_method, accumulated_depreciation, is_disposed } = req.body;
+    await query('UPDATE fixed_assets SET name=?,category=?,purchase_date=?,cost=?,salvage_value=?,useful_life_years=?,depreciation_method=?,accumulated_depreciation=?,is_disposed=? WHERE id=?',
+      [name, category, purchase_date, cost, salvage_value, useful_life_years, depreciation_method, accumulated_depreciation || 0, is_disposed ? 1 : 0, req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/:id/depreciation', auth, async (req, res) => {
+  try {
+    const { amount, date, narration } = req.body;
+    const r = await query('INSERT INTO depreciation_entries (asset_id,amount,date,narration) VALUES (?,?,?,?)', [req.params.id, amount, date, narration]);
+    await query('UPDATE fixed_assets SET accumulated_depreciation = accumulated_depreciation + ? WHERE id=?', [amount, req.params.id]);
+    res.status(201).json({ id: r.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.get('/:id/depreciation', auth, async (req, res) => {
+  try { res.json(await query('SELECT * FROM depreciation_entries WHERE asset_id=? ORDER BY date DESC', [req.params.id])); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+module.exports = router;

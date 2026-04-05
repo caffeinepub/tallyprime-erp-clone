@@ -1,7 +1,25 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT * FROM event_ledger WHERE company_id=? AND is_undone=0 ORDER BY event_time DESC',[companyId]);res.json(r);});
-router.post('/',authenticate,async(req,res)=>{const{companyId,eventType,entityType,entityId,payload,narration}=req.body;const[r]=await db.query('INSERT INTO event_ledger(company_id,event_type,entity_type,entity_id,payload,narration,created_by)VALUES(?,?,?,?,?,?,?)',[companyId,eventType,entityType,entityId,JSON.stringify(payload),narration,req.user.username]);const[rows]=await db.query('SELECT * FROM event_ledger WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.get('/snapshot/:companyId',authenticate,async(req,res)=>{const{asOfDate}=req.query;const[r]=await db.query('SELECT * FROM event_ledger WHERE company_id=? AND event_time<=? ORDER BY event_time ASC',[req.params.companyId,asOfDate]);res.json(r);});
-router.put('/:id/undo',authenticate,async(req,res)=>{await db.query('UPDATE event_ledger SET is_undone=1,undone_by=?,undone_at=NOW() WHERE id=?',[req.user.username,req.params.id]);const[r]=await db.query('SELECT * FROM event_ledger WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.get('/stack/:companyId',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM event_ledger WHERE company_id=? ORDER BY event_time DESC LIMIT 50',[req.params.companyId]);res.json(r);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/', auth, async (req, res) => {
+  try{const {company_id,limit}=req.query;res.json(await query(`SELECT * FROM event_ledger WHERE company_id=? ORDER BY timestamp DESC LIMIT ${parseInt(limit)||100}`,[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/', auth, async (req, res) => {
+  try{
+    const {company_id,event_type,entity_type,entity_id,payload,previous_state}=req.body;
+    const r=await query('INSERT INTO event_ledger (company_id,event_type,entity_type,entity_id,payload,previous_state,user) VALUES (?,?,?,?,?,?,?)',[company_id,event_type,entity_type,entity_id||null,JSON.stringify(payload||{}),JSON.stringify(previous_state||null),req.user.username]);
+    res.status(201).json({id:r.insertId});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/:id/undo', auth, async (req, res) => {
+  try{await query('UPDATE event_ledger SET is_undone=1 WHERE id=?',[req.params.id]);res.json({success:true});}catch(e){res.status(500).json({error:e.message});}
+});
+router.get('/time-travel', auth, async (req, res) => {
+  try{
+    const {company_id,as_of_date}=req.query;
+    res.json(await query('SELECT * FROM event_ledger WHERE company_id=? AND timestamp<=? AND is_undone=0 ORDER BY timestamp ASC',[company_id,as_of_date||new Date().toISOString()]));
+  }catch(e){res.status(500).json({error:e.message});}
+});
+module.exports = router;

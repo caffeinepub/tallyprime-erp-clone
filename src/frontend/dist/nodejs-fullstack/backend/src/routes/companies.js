@@ -1,7 +1,61 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate,auditLog}=require('../middleware/auth');
-router.get('/',authenticate,async(req,res)=>{const[r]=req.user.role==='admin'?await db.query('SELECT * FROM companies WHERE is_active=1 ORDER BY id'):await db.query('SELECT * FROM companies WHERE owner=? AND is_active=1 ORDER BY id',[req.user.username]);res.json(r);});
-router.get('/:id',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM companies WHERE id=?',[req.params.id]);if(!r.length)return res.status(404).json({error:'Not found'});res.json(r[0]);});
-router.post('/',authenticate,async(req,res)=>{const{name,financialYearStart,financialYearEnd,currency,gstin,address,pan,stateCode,stateName,phone,email,website}=req.body;const[r]=await db.query('INSERT INTO companies(name,financial_year_start,financial_year_end,currency,gstin,address,pan,state_code,state_name,phone,email,website,owner)VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',[name,financialYearStart,financialYearEnd,currency||'INR',gstin,address,pan,stateCode,stateName,phone,email,website,req.user.username]);const[rows]=await db.query('SELECT * FROM companies WHERE id=?',[r.insertId]);await auditLog(req,'CREATE','company',r.insertId,{name});res.json(rows[0]);});
-router.put('/:id',authenticate,async(req,res)=>{const{name,financialYearStart,financialYearEnd,currency,gstin,address,pan,stateCode,stateName,phone,email,website,logo,brandColor,tagline,signature,invoicePrefix}=req.body;await db.query('UPDATE companies SET name=?,financial_year_start=?,financial_year_end=?,currency=?,gstin=?,address=?,pan=?,state_code=?,state_name=?,phone=?,email=?,website=?,logo=?,brand_color=?,tagline=?,signature=?,invoice_prefix=? WHERE id=?',[name,financialYearStart,financialYearEnd,currency,gstin,address,pan,stateCode,stateName,phone,email,website,logo,brandColor,tagline,signature,invoicePrefix,req.params.id]);const[r]=await db.query('SELECT * FROM companies WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.delete('/:id',authenticate,async(req,res)=>{await db.query('UPDATE companies SET is_active=0 WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query, invalidateCache } = require('../database/db');
+const { auth, adminOnly } = require('../middleware/auth');
+const { cacheGet, cacheSet } = require('../database/redis');
+
+// GET /api/companies
+router.get('/', auth, async (req, res) => {
+  try {
+    const cacheKey = `companies:${req.user.username}:${req.user.role}`;
+    const cached = await cacheGet(cacheKey);
+    if (cached) return res.json(cached);
+    let rows;
+    if (req.user.role === 'admin') {
+      rows = await query('SELECT * FROM companies ORDER BY created_at DESC');
+    } else {
+      rows = await query('SELECT * FROM companies WHERE owner = ? ORDER BY created_at DESC', [req.user.username]);
+    }
+    await cacheSet(cacheKey, rows, 300);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/companies
+router.post('/', auth, async (req, res) => {
+  try {
+    const { name, financial_year_start, financial_year_end, currency, gstin, address } = req.body;
+    const result = await query(
+      'INSERT INTO companies (name, owner, financial_year_start, financial_year_end, currency, gstin, address) VALUES (?,?,?,?,?,?,?)',
+      [name, req.user.username, financial_year_start, financial_year_end, currency || 'INR', gstin, address]
+    );
+    await invalidateCache(`companies:*`);
+    const rows = await query('SELECT * FROM companies WHERE id = ?', [result.insertId]);
+    res.status(201).json(Array.isArray(rows) ? rows[0] : rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/companies/:id
+router.put('/:id', auth, async (req, res) => {
+  try {
+    const { name, financial_year_start, financial_year_end, currency, gstin, address, logo_url, brand_color, tagline } = req.body;
+    await query(
+      'UPDATE companies SET name=?,financial_year_start=?,financial_year_end=?,currency=?,gstin=?,address=?,logo_url=?,brand_color=?,tagline=? WHERE id=?',
+      [name, financial_year_start, financial_year_end, currency, gstin, address, logo_url, brand_color, tagline, req.params.id]
+    );
+    await invalidateCache(`companies:*`);
+    const rows = await query('SELECT * FROM companies WHERE id = ?', [req.params.id]);
+    res.json(Array.isArray(rows) ? rows[0] : rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE /api/companies/:id (admin only)
+router.delete('/:id', auth, adminOnly, async (req, res) => {
+  try {
+    await query('DELETE FROM companies WHERE id = ?', [req.params.id]);
+    await invalidateCache(`companies:*`);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+module.exports = router;

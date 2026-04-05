@@ -1,7 +1,27 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT * FROM notifications WHERE (company_id=? OR company_id IS NULL) AND (target_user=? OR target_user IS NULL) ORDER BY created_at DESC LIMIT 100',[companyId,req.user.username]);res.json(r);});
-router.post('/',authenticate,async(req,res)=>{const{companyId,title,message,type,targetUser}=req.body;const[r]=await db.query('INSERT INTO notifications(company_id,title,message,type,target_user)VALUES(?,?,?,?,?)',[companyId,title,message,type||'info',targetUser]);const[rows]=await db.query('SELECT * FROM notifications WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/:id/read',authenticate,async(req,res)=>{await db.query('UPDATE notifications SET is_read=1 WHERE id=?',[req.params.id]);res.json({message:'Read'});});
-router.delete('/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM notifications WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-router.get('/smart-alerts/:companyId',authenticate,async(req,res)=>{const cId=req.params.companyId;const alerts=[];const[ls]=await db.query('SELECT name,opening_qty,reorder_level,unit FROM stock_items WHERE company_id=? AND reorder_level>0 AND opening_qty<=reorder_level',[cId]);ls.forEach(i=>alerts.push({type:'low_stock',severity:'warning',title:'Low Stock',message:`${i.name}: ${i.opening_qty} ${i.unit||''} (reorder at ${i.reorder_level})`}));const[ea]=await db.query('SELECT vendor,expiry_date,DATEDIFF(expiry_date,CURDATE()) as days FROM amc_tracker WHERE company_id=? AND expiry_date<=DATE_ADD(CURDATE(),INTERVAL 30 DAY)',[cId]);ea.forEach(a=>alerts.push({type:'amc_expiry',severity:a.days<=0?'error':'warning',title:'AMC Expiry',message:`${a.vendor} expires ${a.expiry_date}`}));const[os]=await db.query('SELECT name,next_billing_date FROM subscription_templates WHERE company_id=? AND next_billing_date<CURDATE() AND is_active=1',[cId]);os.forEach(s=>alerts.push({type:'overdue_renewal',severity:'error',title:'Renewal Overdue',message:`${s.name} due ${s.next_billing_date}`}));const[[{cnt}]]=await db.query('SELECT COUNT(*) as cnt FROM maker_checker WHERE company_id=? AND status="pending"',[cId]);if(cnt>0)alerts.push({type:'pending_approval',severity:'info',title:'Pending Approvals',message:`${cnt} items awaiting approval`});res.json(alerts);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/', auth, async (req, res) => {
+  try{const {company_id}=req.query;res.json(await query('SELECT * FROM notifications WHERE company_id=? ORDER BY created_at DESC LIMIT 100',[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/', auth, async (req, res) => {
+  try{
+    const {company_id,title,message,type}=req.body;
+    const r=await query('INSERT INTO notifications (company_id,title,message,type) VALUES (?,?,?,?)',[company_id,title,message,type||'info']);
+    res.status(201).json({id:r.insertId});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.put('/:id/read', auth, async (req, res) => {
+  try{await query('UPDATE notifications SET is_read=1 WHERE id=?',[req.params.id]);res.json({success:true});}catch(e){res.status(500).json({error:e.message});}
+});
+router.get('/smart-alerts', auth, async (req, res) => {
+  try{
+    const {company_id}=req.query;const alerts=[];
+    const ls=await query('SELECT name FROM stock_items WHERE company_id=? AND opening_qty<=reorder_level AND reorder_level>0 LIMIT 5',[company_id]);
+    if(ls.length) alerts.push({type:'warning',title:'Low Stock',message:`${ls.length} items below reorder level`});
+    res.json(alerts);
+  }catch(e){res.status(500).json({error:e.message});}
+});
+module.exports = router;

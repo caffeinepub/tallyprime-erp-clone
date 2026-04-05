@@ -1,8 +1,29 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/sessions',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT * FROM pos_sessions WHERE company_id=? ORDER BY opened_at DESC',[companyId]);res.json(r);});
-router.post('/sessions/open',authenticate,async(req,res)=>{const{companyId,openingCash}=req.body;const[r]=await db.query('INSERT INTO pos_sessions(company_id,opened_by,opening_cash)VALUES(?,?,?)',[companyId,req.user.username,openingCash||0]);const[rows]=await db.query('SELECT * FROM pos_sessions WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/sessions/:id/close',authenticate,async(req,res)=>{await db.query('UPDATE pos_sessions SET status="closed",closing_cash=?,closed_at=NOW() WHERE id=?',[req.body.closingCash,req.params.id]);const[r]=await db.query('SELECT * FROM pos_sessions WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.get('/sales',authenticate,async(req,res)=>{const{companyId,sessionId,fromDate,toDate}=req.query;let sql='SELECT * FROM pos_sales WHERE company_id=?';const p=[companyId];if(sessionId){sql+=' AND session_id=?';p.push(sessionId);}if(fromDate){sql+=' AND created_at>=?';p.push(fromDate);}if(toDate){sql+=' AND created_at<=?';p.push(toDate);}sql+=' ORDER BY created_at DESC';const[rows]=await db.query(sql,p);const result=await Promise.all(rows.map(async r=>{const[items]=await db.query('SELECT * FROM pos_sale_items WHERE pos_sale_id=?',[r.id]);return{...r,items};}));res.json(result);});
-router.post('/sales',authenticate,async(req,res)=>{const{companyId,sessionId,items,subtotal,discount,total,paymentMode,amountPaid,change,customerName}=req.body;const conn=await db.getConnection();try{await conn.beginTransaction();const[r]=await conn.query('INSERT INTO pos_sales(company_id,session_id,subtotal,discount,total,payment_mode,amount_paid,change_amount,billed_by,customer_name)VALUES(?,?,?,?,?,?,?,?,?,?)',[companyId,sessionId,subtotal,discount||0,total,paymentMode,amountPaid,change||0,req.user.username,customerName]);for(const i of(items||[]))await conn.query('INSERT INTO pos_sale_items(pos_sale_id,stock_item_id,item_name,qty,rate,amount,gst_rate,gst_amount)VALUES(?,?,?,?,?,?,?,?)',[r.insertId,i.stockItemId,i.itemName,i.qty,i.rate,i.amount,i.gstRate||0,i.gstAmount||0]);await conn.commit();res.json({saleId:r.insertId});}catch(e){await conn.rollback();res.status(500).json({error:e.message});}finally{conn.release();}});
-router.get('/register/:companyId',authenticate,async(req,res)=>{const{fromDate,toDate}=req.query;let sql='SELECT DATE(created_at) as date,COUNT(*) as total_bills,SUM(total) as total_sales,payment_mode FROM pos_sales WHERE company_id=?';const p=[req.params.companyId];if(fromDate){sql+=' AND created_at>=?';p.push(fromDate);}if(toDate){sql+=' AND created_at<=?';p.push(toDate);}sql+=' GROUP BY DATE(created_at),payment_mode ORDER BY date DESC';const[r]=await db.query(sql,p);res.json(r);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/sessions', auth, async (req, res) => {
+  try { const {company_id}=req.query; res.json(await query('SELECT * FROM pos_sessions WHERE company_id=? ORDER BY opened_at DESC',[company_id])); } catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/sessions', auth, async (req, res) => {
+  try {
+    const {company_id,opening_cash}=req.body;
+    const r=await query('INSERT INTO pos_sessions (company_id,opened_by,opening_cash) VALUES (?,?,?)',[company_id,req.user.username,opening_cash||0]);
+    res.status(201).json({id:r.insertId});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+router.put('/sessions/:id/close', auth, async (req, res) => {
+  try{await query('UPDATE pos_sessions SET status="closed",closed_at=NOW(),closing_cash=? WHERE id=?',[req.body.closing_cash,req.params.id]);res.json({success:true});}catch(e){res.status(500).json({error:e.message});}
+});
+router.get('/sales', auth, async (req, res) => {
+  try{const {company_id}=req.query;res.json(await query('SELECT * FROM pos_sales WHERE company_id=? ORDER BY date DESC',[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/sales', auth, async (req, res) => {
+  try {
+    const {company_id,session_id,bill_number,items,subtotal,discount,tax,total,payment_mode,amount_tendered,change_amount}=req.body;
+    const r=await query('INSERT INTO pos_sales (company_id,session_id,bill_number,items,subtotal,discount,tax,total,payment_mode,amount_tendered,change_amount) VALUES (?,?,?,?,?,?,?,?,?,?,?)',[company_id,session_id,bill_number,JSON.stringify(items),subtotal,discount||0,tax||0,total,payment_mode||'cash',amount_tendered,change_amount||0]);
+    res.status(201).json({id:r.insertId});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+module.exports = router;

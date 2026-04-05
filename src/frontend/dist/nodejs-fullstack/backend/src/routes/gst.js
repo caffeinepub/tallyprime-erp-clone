@@ -1,10 +1,82 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/settings/:companyId',authenticate,async(req,res)=>{const[r]=await db.query('SELECT * FROM gst_settings WHERE company_id=?',[req.params.companyId]);res.json(r[0]||null);});
-router.post('/settings',authenticate,async(req,res)=>{const{companyId,registrationType,stateCode,stateName}=req.body;await db.query('INSERT INTO gst_settings(company_id,registration_type,state_code,state_name)VALUES(?,?,?,?)ON DUPLICATE KEY UPDATE registration_type=VALUES(registration_type),state_code=VALUES(state_code),state_name=VALUES(state_name)',[companyId,registrationType,stateCode,stateName]);res.json({message:'Saved'});});
-router.get('/vouchers/:companyId',authenticate,async(req,res)=>{const{voucherType,fromDate,toDate}=req.query;let sql='SELECT * FROM gst_vouchers WHERE company_id=?';const p=[req.params.companyId];if(voucherType){sql+=' AND voucher_type=?';p.push(voucherType);}if(fromDate){sql+=' AND date>=?';p.push(fromDate);}if(toDate){sql+=' AND date<=?';p.push(toDate);}sql+=' ORDER BY date DESC';const[rows]=await db.query(sql,p);const result=await Promise.all(rows.map(async v=>{const[e]=await db.query('SELECT * FROM gst_voucher_entries WHERE gst_voucher_id=?',[v.id]);return{...v,entries:e};}));res.json(result);});
-router.post('/vouchers',authenticate,async(req,res)=>{const{companyId,voucherType,voucherNumber,date,narration,entries,partyName,partyGstin,placeOfSupply,isInterState}=req.body;const conn=await db.getConnection();try{await conn.beginTransaction();const tv=(entries||[]).reduce((s,e)=>s+(+e.taxableAmount||0),0);const[r]=await conn.query('INSERT INTO gst_vouchers(company_id,voucher_type,voucher_number,date,narration,party_name,party_gstin,place_of_supply,is_inter_state,taxable_value)VALUES(?,?,?,?,?,?,?,?,?,?)',[companyId,voucherType,voucherNumber,date,narration,partyName,partyGstin,placeOfSupply,isInterState?1:0,tv]);for(const e of(entries||[]))await conn.query('INSERT INTO gst_voucher_entries(gst_voucher_id,ledger_id,amount,entry_type,hsn_code,taxable_amount,cgst_rate,sgst_rate,igst_rate,cgst_amount,sgst_amount,igst_amount,cess_amount)VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',[r.insertId,e.ledgerId,e.amount,e.entryType,e.hsnCode,e.taxableAmount,e.cgstRate,e.sgstRate,e.igstRate,e.cgstAmount,e.sgstAmount,e.igstAmount,e.cessAmount]);await conn.commit();res.json({voucherId:r.insertId});}catch(e){await conn.rollback();res.status(500).json({error:e.message});}finally{conn.release();}});
-router.delete('/vouchers/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM gst_vouchers WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-router.get('/gstr1/:companyId',authenticate,async(req,res)=>{const{fromDate,toDate}=req.query;const[r]=await db.query('SELECT v.*,e.hsn_code,e.taxable_amount,e.cgst_amount,e.sgst_amount,e.igst_amount,e.cess_amount FROM gst_vouchers v JOIN gst_voucher_entries e ON v.id=e.gst_voucher_id WHERE v.company_id=? AND v.voucher_type="Sales" AND v.date BETWEEN ? AND ?',[req.params.companyId,fromDate,toDate]);res.json(r);});
-router.get('/gstr3b/:companyId',authenticate,async(req,res)=>{const{fromDate,toDate}=req.query;const[[s]]=await db.query('SELECT COALESCE(SUM(e.taxable_amount),0) as taxable,COALESCE(SUM(e.igst_amount),0) as igst,COALESCE(SUM(e.cgst_amount),0) as cgst,COALESCE(SUM(e.sgst_amount),0) as sgst FROM gst_vouchers v JOIN gst_voucher_entries e ON v.id=e.gst_voucher_id WHERE v.company_id=? AND v.voucher_type="Sales" AND v.date BETWEEN ? AND ?',[req.params.companyId,fromDate,toDate]);const[[p]]=await db.query('SELECT COALESCE(SUM(e.taxable_amount),0) as taxable,COALESCE(SUM(e.igst_amount),0) as igst,COALESCE(SUM(e.cgst_amount),0) as cgst,COALESCE(SUM(e.sgst_amount),0) as sgst FROM gst_vouchers v JOIN gst_voucher_entries e ON v.id=e.gst_voucher_id WHERE v.company_id=? AND v.voucher_type="Purchase" AND v.date BETWEEN ? AND ?',[req.params.companyId,fromDate,toDate]);res.json({outwardTaxableSupplies:+s.taxable,outwardIGST:+s.igst,outwardCGST:+s.cgst,outwardSGST:+s.sgst,inwardITC:+p.taxable,inwardIGST:+p.igst,inwardCGST:+p.cgst,inwardSGST:+p.sgst,netIGST:+s.igst-+p.igst,netCGST:+s.cgst-+p.cgst,netSGST:+s.sgst-+p.sgst,totalTaxPayable:(+s.igst-+p.igst)+(+s.cgst-+p.cgst)+(+s.sgst-+p.sgst)});});
-router.get('/tax-balances/:companyId',authenticate,async(req,res)=>{const[ledgers]=await db.query("SELECT * FROM ledgers WHERE company_id=? AND (name LIKE '%GST%' OR name LIKE '%CGST%' OR name LIKE '%SGST%' OR name LIKE '%IGST%')",[req.params.companyId]);const result=await Promise.all(ledgers.map(async l=>{const[[{dr}]]=await db.query('SELECT COALESCE(SUM(ve.amount),0) as dr FROM gst_voucher_entries ve JOIN gst_vouchers v ON ve.gst_voucher_id=v.id WHERE v.company_id=? AND ve.ledger_id=? AND ve.entry_type="DR"',[req.params.companyId,l.id]);const[[{cr}]]=await db.query('SELECT COALESCE(SUM(ve.amount),0) as cr FROM gst_voucher_entries ve JOIN gst_vouchers v ON ve.gst_voucher_id=v.id WHERE v.company_id=? AND ve.ledger_id=? AND ve.entry_type="CR"',[req.params.companyId,l.id]);return{ledgerName:l.name,openingBalance:+l.opening_balance,totalDebits:+dr,totalCredits:+cr,closingBalance:+l.opening_balance+(+dr)-(+cr)};}));res.json(result);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+const { cacheGet, cacheSet } = require('../database/redis');
+
+router.get('/settings', auth, async (req, res) => {
+  try {
+    const { company_id } = req.query;
+    const rows = await query('SELECT * FROM gst_settings WHERE company_id=?', [company_id]);
+    res.json(Array.isArray(rows) ? rows[0] || null : null);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/settings', auth, async (req, res) => {
+  try {
+    const { company_id, registration_type, state_code, state_name } = req.body;
+    await query('INSERT INTO gst_settings (company_id,registration_type,state_code,state_name) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE registration_type=?,state_code=?,state_name=?',
+      [company_id, registration_type, state_code, state_name, registration_type, state_code, state_name]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/vouchers', auth, async (req, res) => {
+  try {
+    const { company_id } = req.query;
+    const cKey = `gst_vouchers:${company_id}`;
+    const c = await cacheGet(cKey);
+    if (c) return res.json(c);
+    const rows = await query('SELECT * FROM gst_vouchers WHERE company_id=? ORDER BY date DESC', [company_id]);
+    await cacheSet(cKey, rows, 300);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/vouchers', auth, async (req, res) => {
+  try {
+    const { company_id, voucher_type, voucher_number, date, narration, entries, party_name, party_gstin, place_of_supply, is_inter_state } = req.body;
+    const r = await query(
+      'INSERT INTO gst_vouchers (company_id,voucher_type,voucher_number,date,narration,party_name,party_gstin,place_of_supply,is_inter_state) VALUES (?,?,?,?,?,?,?,?,?)',
+      [company_id, voucher_type, voucher_number, date, narration, party_name, party_gstin, place_of_supply, is_inter_state ? 1 : 0]
+    );
+    const vid = r.insertId;
+    if (entries?.length) {
+      for (const e of entries) {
+        await query('INSERT INTO gst_voucher_entries (gst_voucher_id,ledger_id,entry_type,amount,hsn_code,taxable_amount,cgst_rate,cgst_amount,sgst_rate,sgst_amount,igst_rate,igst_amount,cess_amount) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+          [vid, e.ledger_id, e.entry_type, e.amount, e.hsn_code, e.taxable_amount, e.cgst_rate, e.cgst_amount, e.sgst_rate, e.sgst_amount, e.igst_rate, e.igst_amount, e.cess_amount]);
+      }
+    }
+    res.status(201).json({ id: vid });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/gstr1', auth, async (req, res) => {
+  try {
+    const { company_id, from_date, to_date } = req.query;
+    const cKey = `gstr1:${company_id}:${from_date}:${to_date}`;
+    const c = await cacheGet(cKey);
+    if (c) return res.json(c);
+    const rows = await query(
+      `SELECT gv.voucher_number as invoice_number, gv.date as invoice_date, gv.party_name, gv.party_gstin, gv.place_of_supply,
+        SUM(ge.taxable_amount) as taxable_value, SUM(ge.cgst_amount) as cgst, SUM(ge.sgst_amount) as sgst, SUM(ge.igst_amount) as igst, SUM(ge.cess_amount) as cess, SUM(ge.amount) as invoice_value, ge.hsn_code
+      FROM gst_vouchers gv JOIN gst_voucher_entries ge ON gv.id=ge.gst_voucher_id
+      WHERE gv.company_id=? AND gv.voucher_type='Sales' AND gv.date BETWEEN ? AND ?
+      GROUP BY gv.id`, [company_id, from_date, to_date]);
+    await cacheSet(cKey, rows, 300);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/gstr3b', auth, async (req, res) => {
+  try {
+    const { company_id, from_date, to_date } = req.query;
+    const rows = await query(
+      `SELECT SUM(ge.taxable_amount) as outward_taxable_supplies, SUM(ge.cgst_amount) as outward_cgst, SUM(ge.sgst_amount) as outward_sgst, SUM(ge.igst_amount) as outward_igst
+      FROM gst_vouchers gv JOIN gst_voucher_entries ge ON gv.id=ge.gst_voucher_id
+      WHERE gv.company_id=? AND gv.date BETWEEN ? AND ?`, [company_id, from_date, to_date]);
+    res.json(rows[0] || {});
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+module.exports = router;

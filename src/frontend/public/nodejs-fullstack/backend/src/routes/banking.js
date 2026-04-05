@@ -1,12 +1,67 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT * FROM bank_accounts WHERE company_id=? AND is_active=1 ORDER BY id',[companyId]);res.json(r);});
-router.post('/',authenticate,async(req,res)=>{const{companyId,accountName,accountNumber,ifscCode,bankName,branchName,linkedLedgerId,openingBalance}=req.body;const[r]=await db.query('INSERT INTO bank_accounts(company_id,account_name,account_number,ifsc_code,bank_name,branch_name,linked_ledger_id,opening_balance)VALUES(?,?,?,?,?,?,?,?)',[companyId,accountName,accountNumber,ifscCode,bankName,branchName,linkedLedgerId,openingBalance||0]);const[rows]=await db.query('SELECT * FROM bank_accounts WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/:id',authenticate,async(req,res)=>{const{accountName,accountNumber,ifscCode,bankName,branchName,openingBalance,isActive}=req.body;await db.query('UPDATE bank_accounts SET account_name=?,account_number=?,ifsc_code=?,bank_name=?,branch_name=?,opening_balance=?,is_active=? WHERE id=?',[accountName,accountNumber,ifscCode,bankName,branchName,openingBalance,isActive?1:0,req.params.id]);const[r]=await db.query('SELECT * FROM bank_accounts WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.get('/:id/balance',authenticate,async(req,res)=>{const[acc]=await db.query('SELECT * FROM bank_accounts WHERE id=?',[req.params.id]);if(!acc.length)return res.status(404).json({error:'Not found'});const[[{cr}]]=await db.query('SELECT COALESCE(SUM(amount),0) as cr FROM bank_transactions WHERE bank_account_id=? AND transaction_type="credit"',[req.params.id]);const[[{dr}]]=await db.query('SELECT COALESCE(SUM(amount),0) as dr FROM bank_transactions WHERE bank_account_id=? AND transaction_type="debit"',[req.params.id]);res.json({balance:+acc[0].opening_balance+(+cr)-(+dr)});});
-router.get('/transactions/list',authenticate,async(req,res)=>{const{companyId,bankAccountId,fromDate,toDate,isReconciled}=req.query;let sql='SELECT * FROM bank_transactions WHERE company_id=?';const p=[companyId];if(bankAccountId){sql+=' AND bank_account_id=?';p.push(bankAccountId);}if(fromDate){sql+=' AND date>=?';p.push(fromDate);}if(toDate){sql+=' AND date<=?';p.push(toDate);}if(isReconciled!==undefined&&isReconciled!==''){sql+=' AND is_reconciled=?';p.push(isReconciled==='true'?1:0);}sql+=' ORDER BY date DESC';const[r]=await db.query(sql,p);res.json(r);});
-router.post('/transactions',authenticate,async(req,res)=>{const{companyId,bankAccountId,date,description,amount,transactionType,refNumber,voucherId}=req.body;const[r]=await db.query('INSERT INTO bank_transactions(company_id,bank_account_id,date,description,amount,transaction_type,ref_number,voucher_id)VALUES(?,?,?,?,?,?,?,?)',[companyId,bankAccountId,date,description,amount,transactionType,refNumber,voucherId||null]);const[rows]=await db.query('SELECT * FROM bank_transactions WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/transactions/:id/reconcile',authenticate,async(req,res)=>{await db.query('UPDATE bank_transactions SET is_reconciled=1,reconciled_date=NOW(),voucher_id=? WHERE id=?',[req.body.voucherId||null,req.params.id]);const[r]=await db.query('SELECT * FROM bank_transactions WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.put('/transactions/:id/unreconcile',authenticate,async(req,res)=>{await db.query('UPDATE bank_transactions SET is_reconciled=0,reconciled_date=NULL WHERE id=?',[req.params.id]);const[r]=await db.query('SELECT * FROM bank_transactions WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.get('/brs/:companyId',authenticate,async(req,res)=>{const{bankAccountId,asOfDate}=req.query;const[[{bb}]]=await db.query('SELECT COALESCE(SUM(CASE WHEN transaction_type="credit" THEN amount ELSE -amount END),0) as bb FROM bank_transactions WHERE company_id=? AND bank_account_id=? AND date<=?',[req.params.companyId,bankAccountId,asOfDate]);const[unr]=await db.query('SELECT * FROM bank_transactions WHERE company_id=? AND bank_account_id=? AND is_reconciled=0 AND date<=?',[req.params.companyId,bankAccountId,asOfDate]);res.json({bookBalance:+bb,unreconciledTransactions:unr});});
-router.get('/summary/:companyId',authenticate,async(req,res)=>{const[accounts]=await db.query('SELECT * FROM bank_accounts WHERE company_id=? AND is_active=1',[req.params.companyId]);const result=await Promise.all(accounts.map(async a=>{const[[{cr}]]=await db.query('SELECT COALESCE(SUM(amount),0) as cr FROM bank_transactions WHERE bank_account_id=? AND transaction_type="credit"',[a.id]);const[[{dr}]]=await db.query('SELECT COALESCE(SUM(amount),0) as dr FROM bank_transactions WHERE bank_account_id=? AND transaction_type="debit"',[a.id]);return{...a,balance:+a.opening_balance+(+cr)-(+dr)};}));res.json(result);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+const { cacheGet, cacheSet } = require('../database/redis');
+
+router.get('/accounts', auth, async (req, res) => {
+  try {
+    const { company_id } = req.query;
+    const cKey = `bank_accounts:${company_id}`;
+    const c = await cacheGet(cKey);
+    if (c) return res.json(c);
+    const rows = await query('SELECT * FROM bank_accounts WHERE company_id=? ORDER BY account_name', [company_id]);
+    await cacheSet(cKey, rows, 600);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/accounts', auth, async (req, res) => {
+  try {
+    const { company_id, account_name, account_number, ifsc_code, bank_name, branch_name, linked_ledger_id, opening_balance } = req.body;
+    const r = await query('INSERT INTO bank_accounts (company_id,account_name,account_number,ifsc_code,bank_name,branch_name,linked_ledger_id,opening_balance) VALUES (?,?,?,?,?,?,?,?)',
+      [company_id, account_name, account_number, ifsc_code, bank_name, branch_name, linked_ledger_id, opening_balance || 0]);
+    res.status(201).json({ id: r.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/transactions', auth, async (req, res) => {
+  try {
+    const { company_id, bank_account_id } = req.query;
+    res.json(await query('SELECT * FROM bank_transactions WHERE company_id=? AND bank_account_id=? ORDER BY date DESC', [company_id, bank_account_id]));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/transactions', auth, async (req, res) => {
+  try {
+    const { company_id, bank_account_id, date, description, amount, transaction_type, voucher_id } = req.body;
+    const r = await query('INSERT INTO bank_transactions (company_id,bank_account_id,date,description,amount,transaction_type,voucher_id) VALUES (?,?,?,?,?,?,?)',
+      [company_id, bank_account_id, date, description, amount, transaction_type, voucher_id || null]);
+    res.status(201).json({ id: r.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/transactions/:id/reconcile', auth, async (req, res) => {
+  try {
+    const { voucher_id, remarks } = req.body;
+    await query('UPDATE bank_transactions SET is_reconciled=1,reconciled_date=CURDATE(),voucher_id=? WHERE id=?', [voucher_id || null, req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/unreconciled', auth, async (req, res) => {
+  try {
+    const { company_id, bank_account_id } = req.query;
+    res.json(await query('SELECT * FROM bank_transactions WHERE company_id=? AND bank_account_id=? AND is_reconciled=0 ORDER BY date', [company_id, bank_account_id]));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/balance', auth, async (req, res) => {
+  try {
+    const { company_id, bank_account_id } = req.query;
+    const rows = await query('SELECT SUM(CASE WHEN transaction_type="credit" THEN amount ELSE -amount END) as balance FROM bank_transactions WHERE company_id=? AND bank_account_id=?', [company_id, bank_account_id]);
+    const accts = await query('SELECT opening_balance FROM bank_accounts WHERE id=?', [bank_account_id]);
+    const opening = accts[0]?.opening_balance || 0;
+    res.json({ balance: opening + (rows[0]?.balance || 0) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+module.exports = router;

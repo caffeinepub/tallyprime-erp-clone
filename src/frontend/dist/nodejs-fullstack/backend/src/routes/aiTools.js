@@ -1,6 +1,22 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/config/:companyId',authenticate,async(req,res)=>{const[r]=await db.query("SELECT setting_key,setting_value FROM app_settings WHERE company_id=? AND setting_key IN ('ai_provider','ai_model','ai_enabled')",[req.params.companyId]);const cfg={};r.forEach(s=>{cfg[s.setting_key]=s.setting_value;});res.json(cfg);});
-router.put('/config/:companyId',authenticate,async(req,res)=>{const{aiProvider,aiModel,aiEnabled}=req.body;const settings={ai_provider:aiProvider,ai_model:aiModel,ai_enabled:aiEnabled?'1':'0'};for(const[k,v] of Object.entries(settings))if(v!==undefined)await db.query('INSERT INTO app_settings(company_id,setting_key,setting_value,updated_by)VALUES(?,?,?,?)ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)',[req.params.companyId,k,v,req.user.username]);res.json({message:'Saved'});});
-router.get('/anomalies/:companyId',authenticate,async(req,res)=>{const cId=req.params.companyId;const anomalies=[];const[[{avg}]]=await db.query('SELECT COALESCE(AVG(amount),0) as avg FROM voucher_entries ve JOIN vouchers v ON ve.voucher_id=v.id WHERE v.company_id=?',[cId]);const[large]=await db.query('SELECT v.date,v.voucher_type,v.narration,ve.amount FROM vouchers v JOIN voucher_entries ve ON v.id=ve.voucher_id WHERE v.company_id=? AND ve.amount>? ORDER BY ve.amount DESC LIMIT 5',[cId,avg*5]);large.forEach(t=>anomalies.push({type:'large_transaction',severity:'warning',message:`Large entry: ${t.narration||t.voucher_type} - ${t.amount}`,date:t.date}));res.json(anomalies);});
-router.get('/ledger-suggestions/:companyId',authenticate,async(req,res)=>{const{query}=req.query;const[r]=await db.query('SELECT id,name,group_id FROM ledgers WHERE company_id=? AND name LIKE ? LIMIT 10',[req.params.companyId,`%${query||''}%`]);res.json(r);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { auth } = require('../middleware/auth');
+const { publishToQueue, QUEUES } = require('../database/rabbitmq');
+
+router.post('/suggest-ledger', auth, async (req, res) => {
+  try{
+    const {narration}=req.body;const s=narration?.toLowerCase();
+    const suggestions=s?.includes('salary')?['Salary Payable','Employee Expenses']:s?.includes('rent')?['Rent Expense','Prepaid Rent']:['Sundry Expenses','Miscellaneous Expenses'];
+    res.json({suggestions});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/detect-anomaly', auth, async (req, res) => {
+  try{await publishToQueue(QUEUES.REPORTS,{type:'anomaly_check',...req.body});res.json({status:'queued',message:'Queued for async processing'});}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/generate-narration', auth, async (req, res) => {
+  try{
+    const {voucher_type,amount,party}=req.body;
+    res.json({narrations:[`Being ${voucher_type?.toLowerCase()} of \u20b9${Number(amount).toLocaleString('en-IN')} ${party?`to/from ${party}`:''}`,`${voucher_type} transaction \u20b9${Number(amount).toLocaleString('en-IN')}`,`As per books \u2014 ${voucher_type} \u20b9${Number(amount).toLocaleString('en-IN')}`]});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+module.exports = router;

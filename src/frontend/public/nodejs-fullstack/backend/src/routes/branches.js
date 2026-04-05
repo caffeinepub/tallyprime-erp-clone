@@ -1,8 +1,26 @@
-const router=require('express').Router(),db=require('../database/db'),{authenticate}=require('../middleware/auth');
-router.get('/',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT * FROM branches WHERE company_id=? ORDER BY id',[companyId]);res.json(r);});
-router.post('/',authenticate,async(req,res)=>{const{companyId,name,address,gstin,state,phone}=req.body;const[r]=await db.query('INSERT INTO branches(company_id,name,address,gstin,state,phone)VALUES(?,?,?,?,?,?)',[companyId,name,address,gstin,state,phone]);const[rows]=await db.query('SELECT * FROM branches WHERE id=?',[r.insertId]);res.json(rows[0]);});
-router.put('/:id',authenticate,async(req,res)=>{const{name,address,gstin,state,phone}=req.body;await db.query('UPDATE branches SET name=?,address=?,gstin=?,state=?,phone=? WHERE id=?',[name,address,gstin,state,phone,req.params.id]);const[r]=await db.query('SELECT * FROM branches WHERE id=?',[req.params.id]);res.json(r[0]);});
-router.delete('/:id',authenticate,async(req,res)=>{await db.query('DELETE FROM branches WHERE id=?',[req.params.id]);res.json({message:'Deleted'});});
-router.get('/transfers',authenticate,async(req,res)=>{const{companyId}=req.query;const[r]=await db.query('SELECT bt.*,b1.name as from_name,b2.name as to_name FROM branch_transfers bt LEFT JOIN branches b1 ON bt.from_branch_id=b1.id LEFT JOIN branches b2 ON bt.to_branch_id=b2.id WHERE bt.company_id=? ORDER BY bt.date DESC',[companyId]);res.json(r);});
-router.post('/transfers',authenticate,async(req,res)=>{const{companyId,fromBranchId,toBranchId,transferType,stockItemId,qty,amount,date,narration}=req.body;const[r]=await db.query('INSERT INTO branch_transfers(company_id,from_branch_id,to_branch_id,transfer_type,stock_item_id,qty,amount,date,narration)VALUES(?,?,?,?,?,?,?,?,?)',[companyId,fromBranchId,toBranchId,transferType,stockItemId,qty,amount,date,narration]);const[rows]=await db.query('SELECT * FROM branch_transfers WHERE id=?',[r.insertId]);res.json(rows[0]);});
-module.exports=router;
+const express = require('express');
+const router = express.Router();
+const { query } = require('../database/db');
+const { auth } = require('../middleware/auth');
+
+router.get('/', auth, async (req, res) => {
+  try{const {company_id}=req.query;res.json(await query('SELECT * FROM branches WHERE company_id=? ORDER BY name',[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/', auth, async (req, res) => {
+  try{
+    const {company_id,name,address,gstin,manager}=req.body;
+    const r=await query('INSERT INTO branches (company_id,name,address,gstin,manager) VALUES (?,?,?,?,?)',[company_id,name,address,gstin,manager]);
+    res.status(201).json({id:r.insertId});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+router.get('/transfers', auth, async (req, res) => {
+  try{const {company_id}=req.query;res.json(await query('SELECT bt.*,b1.name as from_branch,b2.name as to_branch FROM branch_transfers bt LEFT JOIN branches b1 ON bt.from_branch_id=b1.id LEFT JOIN branches b2 ON bt.to_branch_id=b2.id WHERE bt.company_id=? ORDER BY bt.date DESC',[company_id]));}catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/transfers', auth, async (req, res) => {
+  try{
+    const {company_id,from_branch_id,to_branch_id,transfer_type,date,amount,description}=req.body;
+    const r=await query('INSERT INTO branch_transfers (company_id,from_branch_id,to_branch_id,transfer_type,date,amount,description) VALUES (?,?,?,?,?,?,?)',[company_id,from_branch_id,to_branch_id,transfer_type||'stock',date,amount,description]);
+    res.status(201).json({id:r.insertId});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+module.exports = router;
