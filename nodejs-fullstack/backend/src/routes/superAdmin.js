@@ -2,7 +2,7 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { db } = require('../database/db');
+const db = require('../database/db');
 
 const SA_SECRET = process.env.SUPER_ADMIN_JWT_SECRET || 'sa_secret_change_me';
 
@@ -45,7 +45,7 @@ router.get('/dashboard', superAdminAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/super-admin/admins - View all admins with status
+// GET /api/super-admin/admins
 router.get('/admins', superAdminAuth, async (req, res) => {
   try {
     const [admins] = await db.query(`
@@ -61,7 +61,7 @@ router.get('/admins', superAdminAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/super-admin/companies - View all companies globally
+// GET /api/super-admin/companies
 router.get('/companies', superAdminAuth, async (req, res) => {
   try {
     const [companies] = await db.query(`
@@ -118,7 +118,7 @@ router.post('/admins/:id/unsuspend', superAdminAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/super-admin/activity - All admin activity
+// GET /api/super-admin/activity
 router.get('/activity', superAdminAuth, async (req, res) => {
   try {
     const [logs] = await db.query('SELECT * FROM audit_log ORDER BY created_at DESC LIMIT 500');
@@ -126,7 +126,7 @@ router.get('/activity', superAdminAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/super-admin/pending-payments - Admins who registered but not paid
+// GET /api/super-admin/pending-payments
 router.get('/pending-payments', superAdminAuth, async (req, res) => {
   try {
     const [pending] = await db.query(`
@@ -139,7 +139,7 @@ router.get('/pending-payments', superAdminAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// POST /api/super-admin/feature-toggle - Enable/disable premium features globally
+// POST /api/super-admin/feature-toggle
 router.post('/feature-toggle', superAdminAuth, async (req, res) => {
   try {
     const { feature_key, is_enabled } = req.body;
@@ -157,7 +157,7 @@ router.get('/feature-flags', superAdminAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// POST /api/super-admin/cloudinary-config - Set Cloudinary credentials
+// POST /api/super-admin/cloudinary-config
 router.post('/cloudinary-config', superAdminAuth, async (req, res) => {
   try {
     const { cloud_name, api_key, api_secret } = req.body;

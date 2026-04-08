@@ -2,7 +2,7 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { db } = require('../database/db');
+const db = require('../database/db');
 const nodemailer = require('nodemailer');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
@@ -36,10 +36,8 @@ if (process.env.GOOGLE_CLIENT_ID) {
   }, async (accessToken, refreshToken, profile, done) => {
     try {
       const email = profile.emails?.[0]?.value;
-      // Check existing social auth
       const [existing] = await db.query('SELECT u.* FROM social_auth sa JOIN users u ON u.id=sa.user_id WHERE sa.provider="google" AND sa.provider_id=?', [profile.id]);
       if (existing.length) return done(null, existing[0]);
-      // Check by email
       const [byEmail] = await db.query('SELECT * FROM users WHERE email=?', [email]);
       let user;
       if (byEmail.length) {
@@ -98,7 +96,7 @@ passport.deserializeUser(async (id, done) => {
   } catch (e) { done(e); }
 });
 
-// POST /api/auth-enhanced/register - Full registration flow
+// POST /api/auth-enhanced/register
 router.post('/register', async (req, res) => {
   try {
     const { username, password, full_name, email, phone, company_name, company_gstin, company_address } = req.body;
@@ -110,7 +108,6 @@ router.post('/register', async (req, res) => {
       [username, hash, full_name, email, phone]
     );
     const userId = result.insertId;
-    // Create company if provided
     if (company_name) {
       await db.query('INSERT INTO companies(name,gstin,address,owner,is_active) VALUES(?,?,?,?,1)', [company_name, company_gstin || null, company_address || null, username]);
     }
@@ -122,14 +119,13 @@ router.post('/register', async (req, res) => {
 // POST /api/auth-enhanced/send-email-otp
 router.post('/send-email-otp', async (req, res) => {
   try {
-    const { email, purpose } = req.body; // purpose: 'login' | 'forgot_password'
+    const { email, purpose } = req.body;
     const [users] = await db.query('SELECT id,username FROM users WHERE email=? AND is_active=1', [email]);
     if (!users.length) return res.status(404).json({ error: 'No active account found with this email' });
     const otp = generateOTP();
-    const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const expiry = new Date(Date.now() + 10 * 60 * 1000);
     await db.query('DELETE FROM otp_codes WHERE identifier=? AND purpose=?', [email, purpose || 'login']);
     await db.query('INSERT INTO otp_codes(identifier,otp,purpose,expires_at) VALUES(?,?,?,?)', [email, otp, purpose || 'login', expiry]);
-    // Send email
     if (process.env.EMAIL_USER) {
       await transporter.sendMail({
         from: process.env.EMAIL_FROM || 'noreply@hisabkitab.com',
@@ -152,7 +148,6 @@ router.post('/send-phone-otp', async (req, res) => {
     const expiry = new Date(Date.now() + 10 * 60 * 1000);
     await db.query('DELETE FROM otp_codes WHERE identifier=? AND purpose=?', [phone, purpose || 'login']);
     await db.query('INSERT INTO otp_codes(identifier,otp,purpose,expires_at) VALUES(?,?,?,?)', [phone, otp, purpose || 'login', expiry]);
-    // Send SMS via Twilio
     if (process.env.TWILIO_ACCOUNT_SID) {
       const twilio = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
       await twilio.messages.create({ body: `HisabKitab Pro OTP: ${otp}. Valid 10 mins.`, from: process.env.TWILIO_PHONE_NUMBER, to: phone });
@@ -164,12 +159,11 @@ router.post('/send-phone-otp', async (req, res) => {
 // POST /api/auth-enhanced/verify-otp
 router.post('/verify-otp', async (req, res) => {
   try {
-    const { identifier, otp, purpose } = req.body; // identifier: email or phone
+    const { identifier, otp, purpose } = req.body;
     const [otpRows] = await db.query('SELECT * FROM otp_codes WHERE identifier=? AND otp=? AND purpose=? AND expires_at > NOW() AND is_used=0',
       [identifier, otp, purpose || 'login']);
     if (!otpRows.length) return res.status(400).json({ error: 'Invalid or expired OTP' });
     await db.query('UPDATE otp_codes SET is_used=1 WHERE id=?', [otpRows[0].id]);
-    // Find user
     const [users] = await db.query('SELECT * FROM users WHERE (email=? OR phone=?) AND is_active=1', [identifier, identifier]);
     if (!users.length) return res.status(404).json({ error: 'User not found' });
     const user = users[0];
@@ -178,10 +172,10 @@ router.post('/verify-otp', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// POST /api/auth-enhanced/forgot-password - Send reset OTP
+// POST /api/auth-enhanced/forgot-password
 router.post('/forgot-password', async (req, res) => {
   try {
-    const { identifier } = req.body; // email or phone
+    const { identifier } = req.body;
     const [users] = await db.query('SELECT id,email,phone FROM users WHERE (email=? OR phone=?) AND is_active=1', [identifier, identifier]);
     if (!users.length) return res.status(404).json({ error: 'No account found' });
     const user = users[0];
@@ -215,25 +209,37 @@ router.post('/reset-password', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/auth-enhanced/google - Initiate Google OAuth
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+// GET /api/auth-enhanced/google
+router.get('/google', (req, res, next) => {
+  if (!process.env.GOOGLE_CLIENT_ID) return res.status(400).json({ error: 'Google OAuth not configured. Set GOOGLE_CLIENT_ID in .env' });
+  passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+});
 
 // GET /api/auth-enhanced/google/callback
-router.get('/google/callback', passport.authenticate('google', { session: false, failureRedirect: `${FRONTEND_URL}/login?error=google_failed` }), (req, res) => {
-  const token = generateToken(req.user);
-  const needsPayment = req.user.approval_status === 'payment_pending';
-  res.redirect(`${FRONTEND_URL}/oauth-callback?token=${token}&redirect=${needsPayment ? 'payment' : 'dashboard'}`);
-});
+router.get('/google/callback',
+  (req, res, next) => passport.authenticate('google', { session: false, failureRedirect: `${FRONTEND_URL}/login?error=google_failed` })(req, res, next),
+  (req, res) => {
+    const token = generateToken(req.user);
+    const needsPayment = req.user.approval_status === 'payment_pending';
+    res.redirect(`${FRONTEND_URL}/oauth-callback?token=${token}&redirect=${needsPayment ? 'payment' : 'dashboard'}`);
+  }
+);
 
-// GET /api/auth-enhanced/github - Initiate GitHub OAuth
-router.get('/github', passport.authenticate('github', { scope: ['user:email'] }));
+// GET /api/auth-enhanced/github
+router.get('/github', (req, res, next) => {
+  if (!process.env.GITHUB_CLIENT_ID) return res.status(400).json({ error: 'GitHub OAuth not configured. Set GITHUB_CLIENT_ID in .env' });
+  passport.authenticate('github', { scope: ['user:email'] })(req, res, next);
+});
 
 // GET /api/auth-enhanced/github/callback
-router.get('/github/callback', passport.authenticate('github', { session: false, failureRedirect: `${FRONTEND_URL}/login?error=github_failed` }), (req, res) => {
-  const token = generateToken(req.user);
-  const needsPayment = req.user.approval_status === 'payment_pending';
-  res.redirect(`${FRONTEND_URL}/oauth-callback?token=${token}&redirect=${needsPayment ? 'payment' : 'dashboard'}`);
-});
+router.get('/github/callback',
+  (req, res, next) => passport.authenticate('github', { session: false, failureRedirect: `${FRONTEND_URL}/login?error=github_failed` })(req, res, next),
+  (req, res) => {
+    const token = generateToken(req.user);
+    const needsPayment = req.user.approval_status === 'payment_pending';
+    res.redirect(`${FRONTEND_URL}/oauth-callback?token=${token}&redirect=${needsPayment ? 'payment' : 'dashboard'}`);
+  }
+);
 
 module.exports = router;
 module.exports.passport = passport;
